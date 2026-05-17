@@ -42,7 +42,8 @@ MonoBehaviour:
   m_RendererFeatures:
   - {fileID: 7833122117494664109}
   - {fileID: -2535055300370829844}
-  m_RendererFeatureMap: ad6b866f10d7b46ceced6cb7a2acd1dc
+  - {fileID: 5829471038475629104}
+  m_RendererFeatureMap: ad6b866f10d7b46ceced6cb7a2acd1dc3072c40c0671e650
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -71,6 +72,21 @@ MonoBehaviour:
   m_DepthTextureFormat: 93
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+--- !u!114 &5829471038475629104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b6e4c3d5f708192a3b4c5d6e7f8091a, type: 3}
+  m_Name: ColorSpread
+  m_EditorClassIdentifier: REHozy.Rendering::REHozy.Rendering.ColorSpreadRendererFeature
+  m_Active: 1
+  shader: {fileID: 4800000, guid: df0a8192e3f415263748596061728394, type: 3}
+  injectionPoint: 600
 --- !u!114 &7833122117494664109
 MonoBehaviour:
   m_ObjectHideFlags: 0
