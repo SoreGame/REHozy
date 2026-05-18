@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ColorSpreadSettings
   m_EditorClassIdentifier: REHozy.Rendering::REHozy.Rendering.ColorSpreadSettings
   growthSpeed: 12
-  maxRadius: 37.1
+  maxRadius: 30
   edgeSoftness: 1.6
   noiseScale: 0.05
   noiseStrength: 6
