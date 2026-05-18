@@ -9,15 +9,33 @@
 | Твой бюджет | **~57 ч** | Все механики в упрощённом виде + UI + звук базово |
 | Полный scope (без упрощений) | **~82–95 ч** | Провисающая гирлянда, vertex-грязь, цепочка факелов с балансом, полный SFX |
 
-**Уже готово (не считаем в бюджет):** уборка из воды (гарпун + `HarpoonCargoTrashDrop`), ColorSpread, volumetric fog, сцена с огнём/водой как декор.
+**Уже готово (не считаем в бюджет):** уборка из воды (гарпун + `HarpoonCargoTrashDrop`), ColorSpread, volumetric fog, сцена с огнём/водой как декор, **квестовый MVP** (см. ниже).
 
 **Сильная база для переиспользования:**
 
 - Перенос предмета: [`HarpoonController`](../Assets/REHozy/Scripts/Harpoon/HarpoonController.cs) + [`HarpoonCarryDriver`](../Assets/REHozy/Scripts/Harpoon/HarpoonCarryDriver.cs) + [`HarpoonMountableItem`](../Assets/REHozy/Scripts/Harpoon/HarpoonMountableItem.cs)
 - Исчезновение через scale: [`HarpoonCargoTrashDrop`](../Assets/REHozy/Scripts/Harpoon/HarpoonCargoTrashDrop.cs) — шаблон для **луж**
 - Милестоуны мира: [`ColorSpreadController.SetStep`](../Assets/REHozy/Scripts/Rendering/ColorSpread/ColorSpreadController.cs)
+- Квесты: [`QuestSO`](../Assets/REHozy/Quests/QuestSO.cs) + [`QuestPresenter`](../Assets/REHozy/Quests/QuestMVP/QuestPresenter.cs) / [`QuestBus`](../Assets/REHozy/Quests/QuestBus.cs) — прогресс через `OnUpdateCounter(questId, delta)`; отладка: **REHozy → Quest Debug** (`QuestDebugWindow`)
 
-**Квесты:** заготовка в **другом проекте** — заложить **день 1 (2–3 ч)** на перенос/адаптацию, иначе всё остальное нечем вести по очереди.
+### Оценка `Assets/REHozy/Quests` (18.05.2026)
+
+| Аспект | Статус |
+|--------|--------|
+| Перенос из другого проекта | **Сделано** — MVP-журнал (не линейный `QuestManager` из плана) |
+| Данные | `QuestSO` + рантайм `QuestData`, авт ID в Editor, [`Test Q1`](../Assets/REHozy/Quests/Test%20Q1.asset) / [`Test Q2`](../Assets/REHozy/Quests/Test%20Q2.asset) |
+| Логика | Presenter / Model / View, сохранение JSON (`QuestJsonSaver` → `persistentDataPath`) |
+| UI | TMP, список активных (`Quest Cell`), выбранный квест, анимации Show/Hide, прогресс `N/Goal` |
+| Сцена | `QuestMVP` + `QuestTrigger` в [`SampleScene`](../Assets/Scenes/SampleScene.unity), старт через [`TestQuestActivator`](../Assets/REHozy/Quests/TestQuestActivator.cs) |
+| Связь с геймплеем | **Нет** — `OnUpdateCounter` нигде не вызывается из мира (только Quest Debug) |
+| Линейная цепочка | **Нет** — несколько активных квестов, нет авто-старта следующего SO |
+| `IWorldTask` / `PlayerToolMode` | **Нет** |
+| Finish / Restart (сцена) | **Нет** — сброс только через `ClearSaveAndResetRuntime` в дебаг-окне |
+| ColorSpread на `OnFinish` | **Нет** — `_questsEvents` в сцене пустой |
+
+**Вывод:** скелет квестов и UI на **~65–70%** фазы 1; до «игра ведёт игрока по очереди» — ещё **4–6 ч**: линейный оркестратор (или дисциплина «один активный»), триггеры прогресса, кнопки сцены, задел под `PlayerToolMode`.
+
+**Риск:** текущая модель — **журнал** (RPG-стиль с gold/select); план — **одна линейная цепочка**. Не смешивать без явного решения: либо упростить до одного `activeQuest`, либо оставить журнал только для UI, а линейность вести отдельным `QuestSequence`.
 
 ---
 
@@ -56,11 +74,13 @@ interface IWorldTask {
 ```
 
 - [ ] **`IWorldTask`** + `InteractionContext` в `Assets/REHozy/Scripts/Gameplay/`
-- [ ] **`QuestManager`** — последовательная активация `ScriptableObject` заданий; при `IsComplete` → следующее + опционально `ColorSpreadController.SetStep`
+- [ ] **Линейный оркестратор** — последовательная активация `QuestSO`; при `progress >= goal` → следующее + опционально `ColorSpreadController.SetStep` *(сейчас: [`QuestPresenter`](../Assets/REHozy/Quests/QuestMVP/QuestPresenter.cs) + журнал активных, без авто-цепочки)*
+- [x] **События квеста** — `QuestBus` + `QuestStateInfo.OnStart` / `OnFinish` в [`QuestModel`](../Assets/REHozy/Quests/QuestMVP/QuestModel.cs) *(в сцене пока не заполнены)*
 - [ ] **`PlayerToolMode`** — enum: Harpoon / Brush / Water / FlameCarrier / PropPlacement / Garland — переключение по активному квесту
-- [ ] **События:** `UnityEvent` на завершении (для SFX и UI)
 
 Это сэкономит **8–12 ч** по сравнению с отдельной логикой на каждую механику.
+
+**Уже есть (не из плана, но полезно):** JSON-сейв, UI-журнал, [`QuestDebugWindow`](../Assets/REHozy/Editor/QuestDebugWindow.cs).
 
 ---
 
@@ -72,12 +92,14 @@ interface IWorldTask {
 - [x] ColorSpread (появление цветов)
 - [x] Volumetric fog + постобработка сцены
 
-### Фаза 1 — Скелет игры (дни 1–3, ~8 ч)
+### Фаза 1 — Скелет игры (дни 1–3, ~8 ч) — **~5 ч сделано / ~3 ч осталось**
 
-- [ ] **Перенос квестовой заготовки** из другого проекта → `QuestDefinition` SO + `QuestManager` + триггеры завершения
-- [ ] **UI:** панель текущего задания, иконка, опциональный прогресс (3/5 кликов); Canvas + TextMeshPro
-- [ ] **Кнопки** «Закончить» / «Начать заново» → `SceneManager.LoadScene` + сброс SO/PlayerPrefs
-- [ ] Первые 2–3 квеста-заглушки в данных (без логики механик) для проверки цепочки
+- [x] **Перенос квестовой заготовки** → `QuestSO` + `QuestPresenter` / `QuestModel` / `QuestView` + `QuestBus`
+- [x] **UI:** панель задания, список активных, прогресс `N/Goal`, Canvas + TextMeshPro, анимации
+- [ ] **UI:** иконка квеста; **одна** «текущая» линейная цель (сейчас — журнал + Select)
+- [ ] **Кнопки** «Закончить» / «Начать заново» → `SceneManager.LoadScene` + `QuestPresenter.ClearSaveAndResetRuntime` (или аналог)
+- [~] **Заглушки в данных:** 2 SO + `TestQuestActivator` в сцене; **прогресс из мира не подключён** (нужен collider/trigger → `QuestBus.OnUpdateCounter`)
+- [ ] **Линейная цепочка:** Q1 complete → auto `OnStart(Q2)`; опционально hook в ColorSpread
 
 ### Фаза 2 — Быстрые победы (дни 3–5, ~8 ч)
 
@@ -111,8 +133,8 @@ interface IWorldTask {
 
 | ✓ | День | Часы | Фокус |
 |---|------|------|-------|
-| [ ] | Пн 18.05 | 2,5 | Перенос квестов + `IWorldTask` + QuestManager |
-| [ ] | Вт 19.05 | 2,5 | UI заданий + Finish/Restart |
+| [✓] | Пн 18.05 | 2,5 | Перенос квестов **(готово)** + `IWorldTask` + линейный оркестратор **(в работе)** |
+| [✓] | Вт 19.05 | 2,5 | Триггеры прогресса + Finish/Restart + (иконка UI при желании) |
 | [ ] | Ср 20.05 | 2,5 | Лужи + квесты на лужи |
 | [ ] | Чт 21.05 | 2,5 | Тушение огня (начало) |
 | [ ] | Пт 22.05 | 2,5 | Тушение огня (конец) + SFX заглушки |
@@ -140,7 +162,8 @@ interface IWorldTask {
 - **Цепочка факелов** — edge cases: смена инструмента mid-carry, смерть пламени при `StartReturnHome` гарпуна.
 - **Гирлянда с провисанием** — физика (Rope/Obi) **не влезает** в 57 ч; только процедурная дуга или префаб-сегменты.
 - **Пропсы** — коллайдеры при переносе, Z-fighting на земле; snap по normal raycast.
-- **Квесты из другого проекта** — несовпадение assembly/URP/Input System; заложить время на адаптацию namespaces.
+- **Квесты: журнал vs линейность** — сейчас несколько `active` квестов и Select; для REHozy нужен один «текущий» шаг или отдельный `QuestSequence`, иначе гарпун/инструменты не к чему привязать.
+- **Прогресс не из мира** — без вызовов `OnUpdateCounter` тестовые SO («зелёная плитка») не завершаются в игре, только в Quest Debug.
 
 ### Процессные
 
@@ -162,7 +185,7 @@ interface IWorldTask {
 
 | Задача | Часы |
 |--------|------|
-| Квесты (перенос + адаптация) + UI + Finish/Restart | 11 |
+| Квесты (перенос **−4ч**) + оркестратор + UI + Finish/Restart + триггеры | **7** осталось из 11 |
 | Лужи | 2 |
 | Тушение огня | 6 |
 | PaintSystem + грязь (mask) | 10 |
@@ -180,7 +203,7 @@ interface IWorldTask {
 
 ```mermaid
 flowchart LR
-    QuestUI[QuestUI] --> QuestMgr[QuestManager]
+    QuestUI[QuestView] --> QuestMgr[QuestPresenter]
     QuestMgr --> ToolMode[PlayerToolMode]
     ToolMode --> Harpoon[Harpoon]
     ToolMode --> Paint[PaintSystem]
@@ -200,6 +223,11 @@ flowchart LR
 
 ---
 
-## Следующий шаг
+## Следующий шаг (19.05)
 
-Начать с **фазы 1** (квесты + UI), не с гирлянды.
+1. **`QuestProgressTrigger`** (или аналог): OnTriggerEnter / клик → `QuestBus.OnUpdateCounter(id, 1)` для Test Q1/Q2.
+2. **`QuestSequence`** или правило «один линейный active» + старт следующего `QuestSO` в `OnFinish`.
+3. Кнопки **Finish / Restart** в UI → `LoadScene` + очистка JSON.
+4. Параллельно заложить **`IWorldTask`** + **`PlayerToolMode`** (хотя бы enum + gate в `HarpoonInputHandler`).
+
+Не брать гирлянду, пока квест **завершается из геймплея**, а не только из Quest Debug.

@@ -220,11 +220,45 @@ public class QuestPresenter : MonoBehaviour
         CanSave = false;
         jsonSaver.Delete(key);
 
+        InterruptAllActiveQuests();
+        ResetQuestStates(_model._data);
+
+        _model._activeQuest.Clear();
+        CanSave = true;
+        jsonSaver.Save(key, _model._data);
+        QuestBus.GetInstance().OnUpdateData?.Invoke();
+    }
+
+    public void ReloadFromScriptableObjects(bool writeSave = true)
+    {
+        CanSave = false;
+
+        InterruptAllActiveQuests();
+        _model._activeQuest.Clear();
+        _model.ClearQuestUi();
+        _model.ReloadDefinitionsFromAssets();
+
+        CanSave = true;
+
+        if (writeSave)
+            jsonSaver.Save(key, _model._data);
+        else
+            jsonSaver.Delete(key);
+
+        QuestBus.GetInstance().OnUpdateData?.Invoke();
+        Debug.Log("[QuestDebug] Квесты перезагружены из Quest List (ScriptableObject).");
+    }
+
+    void InterruptAllActiveQuests()
+    {
         var active = new List<QuestData>(_model._activeQuest);
         foreach (var quest in active)
             QuestBus.GetInstance().OnInterrupt?.Invoke(quest);
+    }
 
-        foreach (var quest in _model._data)
+    static void ResetQuestStates(IEnumerable<QuestData> quests)
+    {
+        foreach (var quest in quests)
         {
             quest.progress = 0;
             quest.active = false;
@@ -232,11 +266,6 @@ public class QuestPresenter : MonoBehaviour
             quest.finished = false;
             quest.highlighted = false;
         }
-
-        _model._activeQuest.Clear();
-        CanSave = true;
-        jsonSaver.Save(key, _model._data);
-        QuestBus.GetInstance().OnUpdateData?.Invoke();
     }
 
     public static void ClearSaveFileOnly()

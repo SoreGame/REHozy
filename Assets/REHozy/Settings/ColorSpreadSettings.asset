@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: ColorSpreadSettings
   m_EditorClassIdentifier: REHozy.Rendering::REHozy.Rendering.ColorSpreadSettings
   growthSpeed: 12
-  maxRadius: 30.6
-  edgeSoftness: 4
+  maxRadius: 37.1
+  edgeSoftness: 1.6
   noiseScale: 0.05
   noiseStrength: 6
-  noiseTexture: {fileID: 0}
+  noiseTexture: {fileID: 2800000, guid: 290bc24ccb6ead547914313786fece4d, type: 3}
   waveEdgeIntensity: 0.86
   waveEdgeWidth: 2.5
   waveEdgeColor: {r: 1, g: 0.95, b: 0.75, a: 1}

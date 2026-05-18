@@ -25,9 +25,16 @@ public class QuestModel : MonoBehaviour
     {
         _activeQuest = new List<QuestData>();
         _data = new List<QuestData>();
+        BuildDataFromQuestList();
+    }
 
+    void BuildDataFromQuestList()
+    {
         foreach (QuestSO sObject in _questList)
         {
+            if (sObject == null)
+                continue;
+
             if (_data.Find(q => q.quest_id == sObject.QuestId) != null)
             {
                 Debug.LogWarning($"Quest with id: {sObject.QuestId} already exist");
@@ -36,6 +43,14 @@ public class QuestModel : MonoBehaviour
             _data.Add(QuestData.so_to_st(sObject));
         }
     }
+
+    public void ReloadDefinitionsFromAssets()
+    {
+        _data.Clear();
+        BuildDataFromQuestList();
+    }
+
+    public void ClearQuestUi() => _view.ClearRuntimeUi();
 
     public void Load(List<QuestData> data)
     {

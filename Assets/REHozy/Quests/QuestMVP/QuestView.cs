@@ -56,6 +56,27 @@ public class QuestView : MonoBehaviour
         QuestBus.GetInstance().OnInterrupt -= Interrupt;
     }
 
+    public void ClearRuntimeUi()
+    {
+        foreach (var cellObj in cellsObj)
+        {
+            if (cellObj != null)
+                Destroy(cellObj);
+        }
+
+        cellsObj.Clear();
+        cells.Clear();
+        hasSelected = false;
+        highlighted = false;
+        highlitedData = null;
+        highlitedImg = null;
+
+        if (_selectedPanel != null)
+            _selectedPanel.SetActive(false);
+        if (_selectBtn != null)
+            _selectBtn.SetActive(false);
+    }
+
     public void Load(List<QuestData> data)
     {
         foreach(QuestData item in data)

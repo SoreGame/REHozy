@@ -108,6 +108,8 @@ namespace REHozy.Editor
                     _presenter.SaveNow();
             }
 
+            DrawReloadFromAssetsSection();
+
             using (new EditorGUILayout.HorizontalScope())
             {
                 var clearLabel = Application.isPlaying && ResolvePresenter() != null
@@ -136,6 +138,26 @@ namespace REHozy.Editor
 
             if (exists && GUILayout.Button("Показать в проводнике"))
                 EditorUtility.RevealInFinder(path);
+        }
+
+        void DrawReloadFromAssetsSection()
+        {
+            using (new EditorGUI.DisabledScope(!Application.isPlaying || ResolvePresenter() == null))
+            {
+                if (!GUILayout.Button("Подгрузить актуальные из Quest List (SO)"))
+                    return;
+
+                if (!EditorUtility.DisplayDialog(
+                        "Подгрузить квесты из SO",
+                        "Взять названия, описания и цели из ScriptableObject в Quest Model → Quest List.\n\n" +
+                        "Сбросить прогресс и активные квесты, очистить UI и перезаписать JSON.",
+                        "Подгрузить",
+                        "Отмена"))
+                    return;
+
+                _presenter.ReloadFromScriptableObjects();
+                Repaint();
+            }
         }
 
         void DrawQuestList()
@@ -214,7 +236,8 @@ namespace REHozy.Editor
             EditorGUILayout.HelpBox(
                 "Горячая клавиша: Ctrl+Shift+Q (Cmd+Shift+Q на Mac).\n" +
                 "«+N» вызывает тот же счётчик, что и игровой QuestBus.OnUpdateCounter.\n" +
-                "После очистки JSON в Play Mode UI обновится автоматически.",
+                "«Подгрузить актуальные из Quest List» — имена и цели из SO, без старых данных JSON.\n" +
+                "«Очистить JSON» — только сброс прогресса, без обновления текстов из ассетов.",
                 MessageType.None);
         }
 

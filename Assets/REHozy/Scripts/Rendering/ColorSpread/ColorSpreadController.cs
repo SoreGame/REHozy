@@ -15,6 +15,8 @@ namespace REHozy.Rendering
         [SerializeField] Volume volume;
         [SerializeField] ColorSpreadSettings settings;
         [SerializeField] bool effectEnabled = true;
+        [Tooltip("Центр волны для вызовов из UnityEvent (UnlockRed и т.д.). Пусто — позиция этого объекта.")]
+        [SerializeField] Transform waveOrigin;
 
         ColorSpreadStep _currentStep = ColorSpreadStep.Grayscale;
 
@@ -79,8 +81,30 @@ namespace REHozy.Rendering
 
         public void ResetEffect()
         {
-            SetStep(ColorSpreadStep.Grayscale, transform.position);
+            SetStep(ColorSpreadStep.Grayscale, ResolveWaveOrigin());
         }
+
+        public void UnlockRed() => SetStep(ColorSpreadStep.RedTones, ResolveWaveOrigin());
+
+        public void UnlockBlue() => SetStep(ColorSpreadStep.BlueTones, ResolveWaveOrigin());
+
+        public void UnlockGreen() => SetStep(ColorSpreadStep.GreenTones, ResolveWaveOrigin());
+
+        public void UnlockFullColor() => SetStep(ColorSpreadStep.FullColor, ResolveWaveOrigin());
+
+        public void RestartWave() => SetStep(_currentStep, ResolveWaveOrigin());
+
+        public void UnlockRedAt(Transform origin) =>
+            SetStep(ColorSpreadStep.RedTones, ResolveWaveOrigin(origin));
+
+        public void UnlockBlueAt(Transform origin) =>
+            SetStep(ColorSpreadStep.BlueTones, ResolveWaveOrigin(origin));
+
+        public void UnlockGreenAt(Transform origin) =>
+            SetStep(ColorSpreadStep.GreenTones, ResolveWaveOrigin(origin));
+
+        public void UnlockFullColorAt(Transform origin) =>
+            SetStep(ColorSpreadStep.FullColor, ResolveWaveOrigin(origin));
 
         public void RefreshFromSettings()
         {
@@ -101,6 +125,14 @@ namespace REHozy.Rendering
         {
             PushRuntimeDataToState(step, worldOrigin, restartWave);
             TrySyncToVolumeStack();
+        }
+
+        Vector3 ResolveWaveOrigin(Transform overrideOrigin = null)
+        {
+            if (overrideOrigin != null)
+                return overrideOrigin.position;
+
+            return waveOrigin != null ? waveOrigin.position : transform.position;
         }
 
         void PushRuntimeDataToState(ColorSpreadStep step, Vector3 worldOrigin, bool restartWave)

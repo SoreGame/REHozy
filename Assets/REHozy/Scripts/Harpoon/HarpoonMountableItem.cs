@@ -9,6 +9,10 @@ namespace REHozy.Harpoon
     {
         [SerializeField] private Transform attachPoint;
 
+        [Header("Quest")]
+        [SerializeField] private QuestSO questOnTrashDispose;
+        [SerializeField] private int questProgressAmount = 1;
+
         public Transform AttachPoint => attachPoint != null ? attachPoint : transform;
 
         public void OnMounted(Transform mountSocket)
@@ -69,6 +73,19 @@ namespace REHozy.Harpoon
             }
 
             drop.Initialize(groundMask);
+            ReportTrashDisposeQuestProgress();
+        }
+
+        void ReportTrashDisposeQuestProgress()
+        {
+            if (questOnTrashDispose == null || questProgressAmount == 0)
+            {
+                return;
+            }
+
+            QuestBus.GetInstance().OnUpdateCounter?.Invoke(
+                questOnTrashDispose.QuestId,
+                questProgressAmount);
         }
     }
 }
