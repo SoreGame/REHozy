@@ -1,45 +1,39 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace REHozy.Harpoon
+namespace REHozy.CarryableTools
 {
-    /// <summary>
-    /// Screen-space hold progress bar shown near the carried harpoon while LMB is held to return home.
-    /// </summary>
     [DisallowMultipleComponent]
-    [AddComponentMenu("REHozy/Harpoon/Harpoon Return Hold UI")]
-    public sealed class HarpoonReturnHoldUI : MonoBehaviour
+    [AddComponentMenu("REHozy/Carryable Tools/Carryable Return Hold UI")]
+    public sealed class CarryableReturnHoldUI : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private HarpoonController harpoon;
-        [SerializeField] private HarpoonInputHandler inputHandler;
+        [SerializeField] private CarryableToolCore tool;
+        [SerializeField] private CarryableToolInputHandler inputHandler;
         [SerializeField] private UnityEngine.Camera worldCamera;
         [SerializeField] private RectTransform root;
         [SerializeField] private Image fillImage;
         [SerializeField] private Canvas rootCanvas;
 
-        [Header("Layout")]
         [SerializeField] private float showDelay = 0.1f;
         [SerializeField] private Vector2 screenOffset = new(0f, 48f);
         [SerializeField] private Vector2 barSize = new(80f, 10f);
-
-        [Header("Appearance")]
         [SerializeField] private Color backgroundColor = new(0.1f, 0.1f, 0.1f, 0.75f);
         [SerializeField] private Color fillColor = new(0.95f, 0.85f, 0.2f, 0.95f);
-
-        [Header("Setup")]
+        [SerializeField] private Color blockedFillBright = new(0.95f, 0.2f, 0.15f, 0.95f);
+        [SerializeField] private Color blockedFillDim = new(0.45f, 0.08f, 0.06f, 0.55f);
+        [SerializeField] private float blockedBlinkSpeed = 5f;
         [SerializeField] private bool createUiIfMissing = true;
 
         private void Awake()
         {
-            if (harpoon == null)
+            if (tool == null)
             {
-                harpoon = FindFirstObjectByType<HarpoonController>();
+                tool = FindFirstObjectByType<CarryableToolCore>();
             }
 
             if (inputHandler == null)
             {
-                inputHandler = FindFirstObjectByType<HarpoonInputHandler>();
+                inputHandler = FindFirstObjectByType<CarryableToolInputHandler>();
             }
 
             if (createUiIfMissing && root == null)
@@ -60,20 +54,21 @@ namespace REHozy.Harpoon
 
         private void LateUpdate()
         {
-            if (root == null || fillImage == null || harpoon == null || inputHandler == null)
+            if (root == null || fillImage == null || tool == null || inputHandler == null)
             {
                 return;
             }
 
-            if (!inputHandler.IsCarriedReturnHoldInProgress
-                || harpoon.State != HarpoonState.Carried)
+            if (!inputHandler.IsReturnHoldInProgress
+                || tool.State != CarryableToolState.Carried
+                || !tool.IsInHomeZone())
             {
                 HideBar();
                 return;
             }
 
-            var holdDuration = Mathf.Max(harpoon.DropHoldDuration, 0.01f);
-            var elapsed = inputHandler.CarriedReturnHoldProgress01 * holdDuration;
+            var holdDuration = Mathf.Max(tool.DropHoldDuration, 0.01f);
+            var elapsed = inputHandler.ReturnHoldProgress01 * holdDuration;
             if (elapsed < showDelay)
             {
                 HideBar();
@@ -87,8 +82,7 @@ namespace REHozy.Harpoon
                 return;
             }
 
-            var worldAnchor = harpoon.transform.position;
-            var screen = cam.WorldToScreenPoint(worldAnchor);
+            var screen = cam.WorldToScreenPoint(tool.transform.position);
             if (screen.z < 0f)
             {
                 HideBar();
@@ -100,8 +94,19 @@ namespace REHozy.Harpoon
                 root.gameObject.SetActive(true);
             }
 
-            var fillWindow = Mathf.Max(holdDuration - showDelay, 0.01f);
-            fillImage.fillAmount = Mathf.Clamp01((elapsed - showDelay) / fillWindow);
+            if (tool.CanReturnHome())
+            {
+                var fillWindow = Mathf.Max(holdDuration - showDelay, 0.01f);
+                fillImage.fillAmount = Mathf.Clamp01((elapsed - showDelay) / fillWindow);
+                fillImage.color = fillColor;
+            }
+            else
+            {
+                fillImage.fillAmount = 1f;
+                var blink = (Mathf.Sin(Time.unscaledTime * blockedBlinkSpeed) + 1f) * 0.5f;
+                fillImage.color = Color.Lerp(blockedFillDim, blockedFillBright, blink);
+            }
+
             PositionOnScreen(screen + (Vector3)screenOffset);
         }
 
@@ -135,17 +140,12 @@ namespace REHozy.Harpoon
 
         private UnityEngine.Camera ResolveCamera()
         {
-            if (worldCamera != null)
-            {
-                return worldCamera;
-            }
-
-            return UnityEngine.Camera.main;
+            return worldCamera != null ? worldCamera : UnityEngine.Camera.main;
         }
 
         private void EnsureBarHierarchy()
         {
-            var canvasGo = new GameObject("HarpoonReturnHoldCanvas");
+            var canvasGo = new GameObject("CarryableReturnHoldCanvas");
             canvasGo.transform.SetParent(transform, false);
 
             rootCanvas = canvasGo.AddComponent<Canvas>();
@@ -165,8 +165,7 @@ namespace REHozy.Harpoon
 
             var bgGo = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             bgGo.transform.SetParent(barGo.transform, false);
-            var bgRect = bgGo.GetComponent<RectTransform>();
-            StretchFull(bgRect);
+            StretchFull(bgGo.GetComponent<RectTransform>());
             var bgImage = bgGo.GetComponent<Image>();
             bgImage.sprite = CreateWhiteSprite();
             bgImage.color = backgroundColor;
@@ -174,8 +173,7 @@ namespace REHozy.Harpoon
 
             var fillGo = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             fillGo.transform.SetParent(barGo.transform, false);
-            var fillRect = fillGo.GetComponent<RectTransform>();
-            StretchFull(fillRect);
+            StretchFull(fillGo.GetComponent<RectTransform>());
             fillImage = fillGo.GetComponent<Image>();
             fillImage.sprite = CreateWhiteSprite();
             fillImage.color = fillColor;

@@ -1,18 +1,18 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace REHozy.Harpoon
+namespace REHozy.CarryableTools
 {
     [DisallowMultipleComponent]
-    [AddComponentMenu("REHozy/Harpoon/Harpoon Input Handler")]
-    public sealed class HarpoonInputHandler : MonoBehaviour
+    [AddComponentMenu("REHozy/Carryable Tools/Carryable Tool Input Handler")]
+    public sealed class CarryableToolInputHandler : MonoBehaviour
     {
-        [SerializeField] private HarpoonController harpoon;
+        [SerializeField] private CarryableToolCore tool;
         [SerializeField] private UnityEngine.Camera rayCamera;
         [SerializeField] private InputActionReference attackAction;
         [SerializeField] private InputActionAsset inputActionsFallback;
         [SerializeField] private float pickupMaxDistance = 150f;
-        [SerializeField] private LayerMask harpoonPickupMask = ~0;
+        [SerializeField] private LayerMask pickupMask = ~0;
         [SerializeField] private float clickMaxDuration = 0.25f;
         [SerializeField] private bool useMouseButtonFallback = true;
 
@@ -20,33 +20,29 @@ namespace REHozy.Harpoon
         private InputActionMap _playerMap;
         private float _pressStartTime;
         private bool _holdActionTriggered;
+        private ICarryableToolActions _actions;
 
-        /// <summary>True while LMB is held during carry and return-hold has not fired yet.</summary>
-        public bool IsCarriedReturnHoldInProgress { get; private set; }
-
-        /// <summary>0–1 progress toward return-hold completion; 0 when not in progress.</summary>
-        public float CarriedReturnHoldProgress01 { get; private set; }
+        public bool IsReturnHoldInProgress { get; private set; }
+        public float ReturnHoldProgress01 { get; private set; }
 
         private void Awake()
         {
-            if (harpoon == null)
+            if (tool == null)
             {
-                harpoon = FindFirstObjectByType<HarpoonController>();
+                tool = FindFirstObjectByType<CarryableToolCore>();
+            }
+
+            if (tool != null)
+            {
+                _actions = tool.GetComponent<ICarryableToolActions>();
             }
 
             ResolveInputActions();
 
-            if (harpoon == null)
+            if (tool == null)
             {
                 Debug.LogWarning(
-                    "[HarpoonInputHandler] HarpoonController not assigned and none found in scene.",
-                    this);
-            }
-
-            if (_attack == null && !useMouseButtonFallback)
-            {
-                Debug.LogWarning(
-                    "[HarpoonInputHandler] Attack action missing. Assign InputAttack or InputSystem_Actions.",
+                    "[CarryableToolInputHandler] CarryableToolCore not assigned and none found in scene.",
                     this);
             }
         }
@@ -55,20 +51,26 @@ namespace REHozy.Harpoon
         {
             _playerMap?.Enable();
             _attack?.Enable();
-            HarpoonGameplayLock.SetCanPickup(true);
+            CarryableGameplayLock.SetCanPickup(true);
+
+            if (PlayerToolModeState.Active == PlayerToolMode.None && tool != null)
+            {
+                PlayerToolModeState.Active = tool.ToolModeId;
+            }
         }
 
         private void OnDisable()
         {
             _attack?.Disable();
             _playerMap?.Disable();
-            HarpoonGameplayLock.SetCanPickup(true);
+            CarryableGameplayLock.SetCanPickup(true);
         }
 
         private void Update()
         {
-            if (harpoon == null)
+            if (tool == null || !IsToolActive())
             {
+                ClearReturnHoldProgress();
                 return;
             }
 
@@ -77,29 +79,31 @@ namespace REHozy.Harpoon
                 return;
             }
 
-            switch (harpoon.State)
+            switch (tool.State)
             {
-                case HarpoonState.OnGround:
-                    ClearCarriedReturnHoldProgress();
+                case CarryableToolState.OnGround:
+                    ClearReturnHoldProgress();
                     UpdateOnGroundInput();
                     break;
-                case HarpoonState.Carried:
+                case CarryableToolState.Carried:
                     UpdateCarriedInput();
                     break;
-                case HarpoonState.Returning:
-                    ClearCarriedReturnHoldProgress();
-                    harpoon.TickReturning();
+                case CarryableToolState.Returning:
+                    ClearReturnHoldProgress();
+                    tool.TickReturning();
                     break;
                 default:
-                    ClearCarriedReturnHoldProgress();
+                    ClearReturnHoldProgress();
                     break;
             }
         }
 
-        private void ClearCarriedReturnHoldProgress()
+        private bool IsToolActive() => PlayerToolModeState.Active == tool.ToolModeId;
+
+        private void ClearReturnHoldProgress()
         {
-            IsCarriedReturnHoldInProgress = false;
-            CarriedReturnHoldProgress01 = 0f;
+            IsReturnHoldInProgress = false;
+            ReturnHoldProgress01 = 0f;
         }
 
         private void UpdateOnGroundInput()
@@ -109,9 +113,9 @@ namespace REHozy.Harpoon
                 _pressStartTime = Time.time;
                 _holdActionTriggered = false;
 
-                if (TryRaycastHarpoon(out _))
+                if (TryRaycastTool(out _))
                 {
-                    harpoon.EnterCarried();
+                    tool.EnterCarried();
                 }
 
                 return;
@@ -119,19 +123,19 @@ namespace REHozy.Harpoon
 
             if (WasAttackReleasedThisFrame() && !_holdActionTriggered
                 && Time.time - _pressStartTime <= clickMaxDuration
-                && TryRaycastHarpoon(out _))
+                && TryRaycastTool(out _))
             {
-                harpoon.EnterCarried();
+                tool.EnterCarried();
             }
         }
 
         private void UpdateCarriedInput()
         {
-            harpoon.TickCarried();
+            tool.TickCarried();
 
-            if (harpoon.State != HarpoonState.Carried)
+            if (tool.State != CarryableToolState.Carried)
             {
-                ClearCarriedReturnHoldProgress();
+                ClearReturnHoldProgress();
                 return;
             }
 
@@ -143,24 +147,29 @@ namespace REHozy.Harpoon
 
             if (IsAttackPressed() && !_holdActionTriggered)
             {
-                if (harpoon.IsInHomeZone())
-                {
-                    var held = Time.time - _pressStartTime;
-                    var duration = Mathf.Max(harpoon.DropHoldDuration, 0.01f);
-                    IsCarriedReturnHoldInProgress = true;
-                    CarriedReturnHoldProgress01 = Mathf.Clamp01(held / duration);
+                var held = Time.time - _pressStartTime;
+                var duration = Mathf.Max(tool.DropHoldDuration, 0.01f);
+                var inHome = tool.IsInHomeZone();
 
-                    if (held >= duration)
+                if (inHome)
+                {
+                    IsReturnHoldInProgress = true;
+                    ReturnHoldProgress01 = Mathf.Clamp01(held / duration);
+                }
+
+                if (held >= duration)
+                {
+                    _holdActionTriggered = true;
+                    ClearReturnHoldProgress();
+                    if (_actions != null)
                     {
-                        _holdActionTriggered = true;
-                        ClearCarriedReturnHoldProgress();
-                        if (harpoon.HasMountedItem)
+                        if (inHome)
                         {
-                            harpoon.StartBlockedReturnHold();
+                            _actions.OnHoldCompleteInHome(tool);
                         }
                         else
                         {
-                            harpoon.StartReturnHome();
+                            _actions.OnHoldCompleteOutsideHome(tool);
                         }
                     }
                 }
@@ -168,31 +177,21 @@ namespace REHozy.Harpoon
                 return;
             }
 
-            ClearCarriedReturnHoldProgress();
+            ClearReturnHoldProgress();
 
             if (WasAttackReleasedThisFrame() && !_holdActionTriggered)
             {
                 if (Time.time - _pressStartTime <= clickMaxDuration)
                 {
-                    TryCarriedClick();
+                    _actions?.OnCarriedClick(tool);
                 }
             }
         }
 
-        private void TryCarriedClick()
-        {
-            if (harpoon.TryDisposeOnClick())
-            {
-                return;
-            }
-
-            harpoon.TryImpaleOnClick();
-        }
-
-        private bool TryRaycastHarpoon(out RaycastHit hit)
+        private bool TryRaycastTool(out RaycastHit hit)
         {
             hit = default;
-            if (!harpoon.CanBePickedUp())
+            if (!tool.CanBePickedUp())
             {
                 return false;
             }
@@ -210,7 +209,7 @@ namespace REHozy.Harpoon
             }
 
             var ray = cam.ScreenPointToRay(mouse.position.ReadValue());
-            var hits = Physics.RaycastAll(ray, pickupMaxDistance, harpoonPickupMask, QueryTriggerInteraction.Ignore);
+            var hits = Physics.RaycastAll(ray, pickupMaxDistance, pickupMask, QueryTriggerInteraction.Ignore);
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
             foreach (var candidate in hits)
@@ -220,7 +219,7 @@ namespace REHozy.Harpoon
                     continue;
                 }
 
-                if (candidate.collider.GetComponentInParent<HarpoonController>() == harpoon)
+                if (candidate.collider.GetComponentInParent<CarryableToolCore>() == tool)
                 {
                     hit = candidate;
                     return true;

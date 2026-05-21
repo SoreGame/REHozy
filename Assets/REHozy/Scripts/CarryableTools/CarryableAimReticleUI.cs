@@ -1,39 +1,32 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace REHozy.Harpoon
+namespace REHozy.CarryableTools
 {
-    /// <summary>
-    /// Screen-space UI marker at the ground aim point under the carried harpoon.
-    /// </summary>
     [DisallowMultipleComponent]
-    [AddComponentMenu("REHozy/Harpoon/Harpoon Aim Reticle UI")]
-    public sealed class HarpoonAimReticleUI : MonoBehaviour
+    [AddComponentMenu("REHozy/Carryable Tools/Carryable Aim Reticle UI")]
+    public sealed class CarryableAimReticleUI : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private HarpoonController harpoon;
-        [SerializeField] private HarpoonCarryDriver carryDriver;
+        [SerializeField] private CarryableToolCore tool;
+        [SerializeField] private CarryableCarryDriver carryDriver;
         [SerializeField] private UnityEngine.Camera worldCamera;
         [SerializeField] private RectTransform reticle;
         [SerializeField] private Canvas rootCanvas;
 
-        [Header("Appearance")]
         [SerializeField] private Vector2 reticleSize = new(24f, 24f);
         [SerializeField] private Color reticleColor = new(1f, 1f, 1f, 0.9f);
-
-        [Header("Setup")]
         [SerializeField] private bool createUiIfMissing = true;
 
         private void Awake()
         {
-            if (harpoon == null)
+            if (tool == null)
             {
-                harpoon = FindFirstObjectByType<HarpoonController>();
+                tool = FindFirstObjectByType<CarryableToolCore>();
             }
 
-            if (carryDriver == null && harpoon != null)
+            if (carryDriver == null && tool != null)
             {
-                carryDriver = harpoon.GetComponent<HarpoonCarryDriver>();
+                carryDriver = tool.CarryDriver;
             }
 
             if (createUiIfMissing && reticle == null)
@@ -54,12 +47,12 @@ namespace REHozy.Harpoon
 
         private void LateUpdate()
         {
-            if (reticle == null || harpoon == null || carryDriver == null)
+            if (reticle == null || tool == null || carryDriver == null)
             {
                 return;
             }
 
-            if (harpoon.State != HarpoonState.Carried)
+            if (tool.State != CarryableToolState.Carried)
             {
                 if (reticle.gameObject.activeSelf)
                 {
@@ -79,7 +72,7 @@ namespace REHozy.Harpoon
                 return;
             }
 
-            var cam = ResolveCamera();
+            var cam = worldCamera != null ? worldCamera : UnityEngine.Camera.main;
             if (cam == null)
             {
                 return;
@@ -115,24 +108,9 @@ namespace REHozy.Harpoon
             }
         }
 
-        private UnityEngine.Camera ResolveCamera()
-        {
-            if (worldCamera != null)
-            {
-                return worldCamera;
-            }
-
-            if (carryDriver != null)
-            {
-                return UnityEngine.Camera.main;
-            }
-
-            return UnityEngine.Camera.main;
-        }
-
         private void EnsureReticleHierarchy()
         {
-            var canvasGo = new GameObject("HarpoonReticleCanvas");
+            var canvasGo = new GameObject("CarryableReticleCanvas");
             canvasGo.transform.SetParent(transform, false);
 
             rootCanvas = canvasGo.AddComponent<Canvas>();

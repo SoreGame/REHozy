@@ -4694,10 +4694,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 848450433}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a, type: 3}
+  m_Script: {fileID: 11500000, guid: e8f90123456bcdef890123456bcdef01, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::REHozy.Harpoon.HarpoonAimReticleUI
-  harpoon: {fileID: 1818639832}
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.CarryableTools.CarryableAimReticleUI
+  tool: {fileID: 1818639832}
   carryDriver: {fileID: 1818639831}
   worldCamera: {fileID: 330585545}
   reticle: {fileID: 0}
@@ -4714,15 +4714,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 848450433}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c2b0d9e7f8a4b5dc1e3f5a7b9d2e4f1, type: 3}
+  m_Script: {fileID: 11500000, guid: c6d7e8f901234abc6d7e8f901234abcd, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::REHozy.Harpoon.HarpoonInputHandler
-  harpoon: {fileID: 1818639832}
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.CarryableTools.CarryableToolInputHandler
+  tool: {fileID: 1818639832}
   rayCamera: {fileID: 330585545}
   attackAction: {fileID: 0}
   inputActionsFallback: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   pickupMaxDistance: 112.8
-  harpoonPickupMask:
+  pickupMask:
     serializedVersion: 2
     m_Bits: 4294967295
   clickMaxDuration: 0.25
@@ -4751,10 +4751,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 848450433}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8f3e2d1c0b9a8071625344f3e2d1c0b, type: 3}
+  m_Script: {fileID: 11500000, guid: d7e8f9012345abcd7e8f9012345abcde, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::REHozy.Harpoon.HarpoonReturnHoldUI
-  harpoon: {fileID: 1818639832}
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.CarryableTools.CarryableReturnHoldUI
+  tool: {fileID: 1818639832}
   inputHandler: {fileID: 848450435}
   worldCamera: {fileID: 330585545}
   root: {fileID: 0}
@@ -7777,6 +7777,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1240613705}
   - component: {fileID: 1240613706}
+  - component: {fileID: 1240613707}
   m_Layer: 0
   m_Name: HomePoint
   m_TagString: Untagged
@@ -7820,6 +7821,19 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 7, y: 6, z: 8}
   m_Center: {x: 2, y: 1, z: 2.5}
+--- !u!114 &1240613707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1240613704}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5234567890ef5234567890ef52345678, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.CarryableTools.HomeZoneRegistry
+  homeZone: {fileID: 1240613706}
 --- !u!1 &1251086812
 GameObject:
   m_ObjectHideFlags: 0
@@ -10528,6 +10542,7 @@ GameObject:
   - component: {fileID: 1818639833}
   - component: {fileID: 1818639831}
   - component: {fileID: 1818639832}
+  - component: {fileID: 1818639837}
   m_Layer: 0
   m_Name: Harpoon
   m_TagString: Untagged
@@ -10544,9 +10559,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1818639830}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b3d1e0f8a9c4d5eb0f2a4c6d8e1f3a2, type: 3}
+  m_Script: {fileID: 11500000, guid: a4b5c6d7e8f9012a4b5c6d7e8f9012ab, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::REHozy.Harpoon.HarpoonCarryDriver
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.CarryableTools.CarryableCarryDriver
   targetCamera: {fileID: 330585545}
   groundMask:
     serializedVersion: 2
@@ -10573,21 +10588,34 @@ MonoBehaviour:
   m_GameObject: {fileID: 1818639830}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a4c2f1e9b0d4e6fa1c3d5e7b9f2a4c1, type: 3}
+  m_Script: {fileID: 11500000, guid: b5c6d7e8f90123ab5c6d7e8f90123abc, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::REHozy.Harpoon.HarpoonController
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.CarryableTools.CarryableToolCore
+  toolModeId: 1
   tip: {fileID: 1937777333}
   mountSocket: {fileID: 401905616}
   carryDriver: {fileID: 1818639831}
   pickupCollider: {fileID: 1818639833}
-  homeZone: {fileID: 1240613706}
+  homeZone: {fileID: 0}
+  dropHoldDuration: 1
+  returnLerpDuration: 0.5
+  animationLockDuration: 0.3
+--- !u!114 &1818639837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1818639830}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6789012345678abcdef01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::REHozy.Harpoon.HarpoonToolActions
   impaleRadius: 1
   mountableMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  dropHoldDuration: 1
-  returnLerpDuration: 0.5
-  animationLockDuration: 0.3
   onImpaleStarted:
     m_PersistentCalls:
       m_Calls: []

@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using REHozy.CarryableTools;
 using REHozy.Harpoon;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -14,24 +15,23 @@ namespace REHozy.EditorTools
         [MenuItem(MenuPath)]
         public static void SetupInOpenScene()
         {
-            if (Object.FindFirstObjectByType<HarpoonController>() != null)
+            if (Object.FindFirstObjectByType<CarryableToolCore>() != null)
             {
-                Debug.Log("Harpoon test objects already exist in the open scene.");
+                Debug.Log("Carryable tool test objects already exist in the open scene.");
                 return;
             }
 
             var bridgeY = -5.5f;
-            var homePosition = new Vector3(-72f, bridgeY, -12f);
-            var homeCollider = CreateHomeCollider(homePosition);
-            var harpoonRoot = CreateHarpoon(new Vector3(-76f, bridgeY + 0.6f, -11f), homeCollider);
+            var homeCollider = CreateHomeZone(new Vector3(-72f, bridgeY, -12f));
+            var harpoonRoot = CreateHarpoon(new Vector3(-76f, bridgeY + 0.6f, -11f));
             CreateMountable(new Vector3(-74f, bridgeY + 0.35f, -9.5f));
-            CreateGameplay(harpoonRoot);
+            CreateGameplay(harpoonRoot, homeCollider);
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("Harpoon test objects created.");
+            Debug.Log("Harpoon / carryable tool test objects created.");
         }
 
-        private static GameObject CreateHarpoon(Vector3 position, Collider homeZone)
+        private static GameObject CreateHarpoon(Vector3 position)
         {
             var root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             root.name = "Harpoon";
@@ -53,8 +53,9 @@ namespace REHozy.EditorTools
             socket.SetParent(root.transform, false);
             socket.localPosition = new Vector3(0f, -0.85f, 0f);
 
-            var carry = root.AddComponent<HarpoonCarryDriver>();
-            var controller = root.AddComponent<HarpoonController>();
+            var carry = root.AddComponent<CarryableCarryDriver>();
+            var core = root.AddComponent<CarryableToolCore>();
+            root.AddComponent<HarpoonToolActions>();
 
             var cam = UnityEngine.Camera.main;
             if (cam != null)
@@ -66,12 +67,12 @@ namespace REHozy.EditorTools
                 soCarry.ApplyModifiedPropertiesWithoutUndo();
             }
 
-            var so = new SerializedObject(controller);
+            var so = new SerializedObject(core);
+            so.FindProperty("toolModeId").enumValueIndex = (int)PlayerToolMode.Harpoon;
             so.FindProperty("tip").objectReferenceValue = tip;
             so.FindProperty("mountSocket").objectReferenceValue = socket;
             so.FindProperty("carryDriver").objectReferenceValue = carry;
             so.FindProperty("pickupCollider").objectReferenceValue = pickup;
-            so.FindProperty("homeZone").objectReferenceValue = homeZone;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -86,47 +87,60 @@ namespace REHozy.EditorTools
             item.AddComponent<HarpoonMountableItem>();
         }
 
-        private static Collider CreateHomeCollider(Vector3 position)
+        private static Collider CreateHomeZone(Vector3 position)
         {
-            var home = new GameObject("HarpoonHome");
+            var home = new GameObject("HomePoint");
             home.transform.position = position;
             var col = home.AddComponent<BoxCollider>();
             col.isTrigger = true;
             col.size = new Vector3(4f, 2f, 4f);
             col.center = new Vector3(0f, 1f, 0f);
+            var registry = home.AddComponent<HomeZoneRegistry>();
+            var so = new SerializedObject(registry);
+            so.FindProperty("homeZone").objectReferenceValue = col;
+            so.ApplyModifiedPropertiesWithoutUndo();
             return col;
         }
 
-        private static void CreateGameplay(GameObject harpoon)
+        private static void CreateGameplay(GameObject harpoon, Collider homeCollider)
         {
-            var go = new GameObject("HarpoonGameplay");
-            var input = go.AddComponent<HarpoonInputHandler>();
-            var reticle = go.AddComponent<HarpoonAimReticleUI>();
-            var returnHoldUi = go.AddComponent<HarpoonReturnHoldUI>();
+            var go = new GameObject("ToolGameplay");
+            var input = go.AddComponent<CarryableToolInputHandler>();
+            var reticle = go.AddComponent<CarryableAimReticleUI>();
+            var returnHoldUi = go.AddComponent<CarryableReturnHoldUI>();
 
             var attackRef = AssetDatabase.LoadAssetAtPath<InputActionReference>(
                 "Assets/REHozy/Settings/InputAttack.asset");
             var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(
                 "Assets/InputSystem_Actions.inputactions");
 
+            var core = harpoon.GetComponent<CarryableToolCore>();
+            var carry = harpoon.GetComponent<CarryableCarryDriver>();
+
+            var soCore = new SerializedObject(core);
+            soCore.FindProperty("homeZone").objectReferenceValue = homeCollider;
+            soCore.ApplyModifiedPropertiesWithoutUndo();
+
             var so = new SerializedObject(input);
-            so.FindProperty("harpoon").objectReferenceValue = harpoon.GetComponent<HarpoonController>();
+            so.FindProperty("tool").objectReferenceValue = core;
             so.FindProperty("rayCamera").objectReferenceValue = UnityEngine.Camera.main;
             so.FindProperty("attackAction").objectReferenceValue = attackRef;
             so.FindProperty("inputActionsFallback").objectReferenceValue = actions;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var soReticle = new SerializedObject(reticle);
-            soReticle.FindProperty("harpoon").objectReferenceValue = harpoon.GetComponent<HarpoonController>();
-            soReticle.FindProperty("carryDriver").objectReferenceValue = harpoon.GetComponent<HarpoonCarryDriver>();
+            soReticle.FindProperty("tool").objectReferenceValue = core;
+            soReticle.FindProperty("carryDriver").objectReferenceValue = carry;
             soReticle.FindProperty("worldCamera").objectReferenceValue = UnityEngine.Camera.main;
             soReticle.ApplyModifiedPropertiesWithoutUndo();
 
             var soReturnHold = new SerializedObject(returnHoldUi);
-            soReturnHold.FindProperty("harpoon").objectReferenceValue = harpoon.GetComponent<HarpoonController>();
+            soReturnHold.FindProperty("tool").objectReferenceValue = core;
             soReturnHold.FindProperty("inputHandler").objectReferenceValue = input;
             soReturnHold.FindProperty("worldCamera").objectReferenceValue = UnityEngine.Camera.main;
             soReturnHold.ApplyModifiedPropertiesWithoutUndo();
+
+            PlayerToolModeState.Active = PlayerToolMode.Harpoon;
         }
     }
 }

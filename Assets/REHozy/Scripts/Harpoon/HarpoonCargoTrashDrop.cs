@@ -1,121 +1,33 @@
-using System.Collections;
 using UnityEngine;
 
 namespace REHozy.Harpoon
 {
     /// <summary>
-    /// Cargo released in trash area: falls, rests on the ground, then scales to zero and is destroyed.
+    /// Trash-bin consume only: scale to zero and destroy. Use <see cref="BeginTrashConsume"/> after <see cref="HarpoonMountableItem.ConsumeInTrashBin"/>.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody))]
     [AddComponentMenu("REHozy/Harpoon/Cargo Trash Drop")]
     public sealed class HarpoonCargoTrashDrop : MonoBehaviour
     {
-        private enum Phase
-        {
-            Falling,
-            Lying,
-            Shrinking
-        }
-
-        [SerializeField] private LayerMask groundMask = ~0;
-        [SerializeField] private float lieOnGroundDuration = 1f;
         [SerializeField] private float shrinkDuration = 0.35f;
-        [SerializeField] private float maxLifetime = 15f;
-        [SerializeField] private float settleSpeedThreshold = 0.35f;
-        [SerializeField] private float groundProbeDistance = 0.3f;
 
         private Rigidbody _rigidbody;
-        private Phase _phase = Phase.Falling;
         private Vector3 _initialScale;
-        private float _spawnTime;
         private float _shrinkT;
 
-        public void Initialize(LayerMask mask)
-        {
-            groundMask = mask;
-        }
-
-        private void Awake()
+        public void BeginTrashConsume()
         {
             _rigidbody = GetComponent<Rigidbody>();
             _initialScale = transform.localScale;
-            _spawnTime = Time.time;
-        }
-
-        private void FixedUpdate()
-        {
-            if (_phase != Phase.Falling || _rigidbody == null)
-            {
-                return;
-            }
-
-            if (Time.time - _spawnTime > maxLifetime)
-            {
-                BeginShrink();
-                return;
-            }
-
-            if (_rigidbody.linearVelocity.sqrMagnitude > settleSpeedThreshold * settleSpeedThreshold)
-            {
-                return;
-            }
-
-            if (IsGroundBelow())
-            {
-                BeginLieOnGround();
-            }
-        }
-
-        private void OnCollisionEnter(Collision collision)
-        {
-            if (_phase != Phase.Falling || collision.collider == null)
-            {
-                return;
-            }
-
-            if (IsGroundCollider(collision.collider))
-            {
-                BeginLieOnGround();
-            }
+            FreezePhysics();
+            _shrinkT = 0f;
+            enabled = true;
         }
 
         private void Update()
         {
-            if (_phase == Phase.Shrinking)
-            {
-                TickShrink();
-            }
-        }
-
-        private void BeginLieOnGround()
-        {
-            if (_phase != Phase.Falling)
-            {
-                return;
-            }
-
-            _phase = Phase.Lying;
-            FreezePhysics();
-            StartCoroutine(LieThenShrinkRoutine());
-        }
-
-        private IEnumerator LieThenShrinkRoutine()
-        {
-            yield return new WaitForSeconds(lieOnGroundDuration);
-            BeginShrink();
-        }
-
-        private void BeginShrink()
-        {
-            if (_phase == Phase.Shrinking)
-            {
-                return;
-            }
-
-            _phase = Phase.Shrinking;
-            FreezePhysics();
-            _shrinkT = 0f;
+            TickShrink();
         }
 
         private void TickShrink()
@@ -142,14 +54,5 @@ namespace REHozy.Harpoon
             _rigidbody.isKinematic = true;
         }
 
-        private bool IsGroundBelow()
-        {
-            var origin = transform.position + Vector3.up * 0.05f;
-            return Physics.Raycast(origin, Vector3.down, groundProbeDistance, groundMask,
-                QueryTriggerInteraction.Ignore);
-        }
-
-        private bool IsGroundCollider(Collider col) =>
-            ((1 << col.gameObject.layer) & groundMask.value) != 0;
     }
 }

@@ -1,6 +1,6 @@
-namespace REHozy.Harpoon
+namespace REHozy.CarryableTools
 {
-    public enum HarpoonState
+    public enum CarryableToolState
     {
         OnGround,
         Carried,

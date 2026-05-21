@@ -1,11 +1,11 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace REHozy.Harpoon
+namespace REHozy.CarryableTools
 {
     [DisallowMultipleComponent]
-    [AddComponentMenu("REHozy/Harpoon/Harpoon Carry Driver")]
-    public sealed class HarpoonCarryDriver : MonoBehaviour
+    [AddComponentMenu("REHozy/Carryable Tools/Carryable Carry Driver")]
+    public sealed class CarryableCarryDriver : MonoBehaviour
     {
         [SerializeField] private UnityEngine.Camera targetCamera;
         [SerializeField] private LayerMask groundMask = ~0;
@@ -92,9 +92,6 @@ namespace REHozy.Harpoon
             _carryMotionInitialized = true;
         }
 
-        /// <summary>
-        /// Smooth root motion; tilt around <paramref name="tipPivot"/> opposite to horizontal movement (stronger with cargo).
-        /// </summary>
         public bool TryApplySmoothedCarry(Transform root, Transform tipPivot, bool hasCargo)
         {
             if (!TryGetCarryPose(out var targetPosition, out var baseRotation))

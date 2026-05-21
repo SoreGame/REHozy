@@ -13,7 +13,8 @@
 
 **Сильная база для переиспользования:**
 
-- Перенос предмета: [`HarpoonController`](../Assets/REHozy/Scripts/Harpoon/HarpoonController.cs) + [`HarpoonCarryDriver`](../Assets/REHozy/Scripts/Harpoon/HarpoonCarryDriver.cs) + [`HarpoonMountableItem`](../Assets/REHozy/Scripts/Harpoon/HarpoonMountableItem.cs)
+- **Как добавлять новые инструменты и объекты:** [`CarryableTools_Guide.md`](CarryableTools_Guide.md)
+- Перенос предмета (общий каркас): [`CarryableToolCore`](../Assets/REHozy/Scripts/CarryableTools/CarryableToolCore.cs) + [`CarryableCarryDriver`](../Assets/REHozy/Scripts/CarryableTools/CarryableCarryDriver.cs) + [`ICarryableToolActions`](../Assets/REHozy/Scripts/CarryableTools/ICarryableToolActions.cs); гарпун: [`HarpoonToolActions`](../Assets/REHozy/Scripts/Harpoon/HarpoonToolActions.cs) + [`HarpoonMountableItem`](../Assets/REHozy/Scripts/Harpoon/HarpoonMountableItem.cs)
 - Исчезновение через scale: [`HarpoonCargoTrashDrop`](../Assets/REHozy/Scripts/Harpoon/HarpoonCargoTrashDrop.cs) — шаблон для **луж**
 - Милестоуны мира: [`ColorSpreadController.SetStep`](../Assets/REHozy/Scripts/Rendering/ColorSpread/ColorSpreadController.cs)
 - Квесты: [`QuestSO`](../Assets/REHozy/Quests/QuestSO.cs) + [`QuestPresenter`](../Assets/REHozy/Quests/QuestMVP/QuestPresenter.cs) / [`QuestBus`](../Assets/REHozy/Quests/QuestBus.cs) — прогресс через `OnUpdateCounter(questId, delta)`; отладка: **REHozy → Quest Debug** (`QuestDebugWindow`)
@@ -76,7 +77,7 @@ interface IWorldTask {
 - [ ] **`IWorldTask`** + `InteractionContext` в `Assets/REHozy/Scripts/Gameplay/`
 - [ ] **Линейный оркестратор** — последовательная активация `QuestSO`; при `progress >= goal` → следующее + опционально `ColorSpreadController.SetStep` *(сейчас: [`QuestPresenter`](../Assets/REHozy/Quests/QuestMVP/QuestPresenter.cs) + журнал активных, без авто-цепочки)*
 - [x] **События квеста** — `QuestBus` + `QuestStateInfo.OnStart` / `OnFinish` в [`QuestModel`](../Assets/REHozy/Quests/QuestMVP/QuestModel.cs) *(в сцене пока не заполнены)*
-- [ ] **`PlayerToolMode`** — enum: Harpoon / Brush / Water / FlameCarrier / PropPlacement / Garland — переключение по активному квесту
+- [x] **`PlayerToolMode`** — enum + gate в [`CarryableToolInputHandler`](../Assets/REHozy/Scripts/CarryableTools/CarryableToolInputHandler.cs); переключение по квесту — TODO
 
 Это сэкономит **8–12 ч** по сравнению с отдельной логикой на каждую механику.
 
@@ -117,7 +118,7 @@ interface IWorldTask {
 
 ### Фаза 4 — Огонь и растения (дни 8–10, ~12 ч)
 
-- [ ] **Костёр + факелы:** клики разжигают костёр → на кончик гарпуна/сокет крепится `FlameCarrier` (свет + VFX) → поднесение к факелу → передача огня; **скорость** `HarpoonCarryDriver` / delta position > порог → сброс огня
+- [ ] **Костёр + факелы:** клики разжигают костёр → на кончик гарпуна/сокет крепится `FlameCarrier` (свет + VFX) → поднесение к факелу → передача огня; **скорость** `CarryableCarryDriver` / delta position > порог → сброс огня
 - [ ] **Саженцы:** коробка → в руку (как проп) → клик по `PlantSlot` → фиксация; полив M кликов → `Coroutine` scale + optional color lerp
 
 ### Фаза 5 — Гирлянда + полировка (дни 11–14, ~13 ч)
@@ -154,7 +155,7 @@ interface IWorldTask {
 
 ### Технические
 
-- **Конфликт гарпуна и других инструментов** — без `PlayerToolMode` клики уйдут в `HarpoonInputHandler` ([`HarpoonInputHandler.cs`](../Assets/REHozy/Scripts/Harpoon/HarpoonInputHandler.cs)); нужен ранний gate по активному квесту.
+- **Конфликт инструментов** — gate по `PlayerToolModeState.Active` в [`CarryableToolInputHandler`](../Assets/REHozy/Scripts/CarryableTools/CarryableToolInputHandler.cs); привязка к активному квесту — TODO.
 - **Грязь как SnowVertex** — deform map + temporal lerp + UV на больших мешах: легко **съесть 15–20 ч**; mask-first обязателен для срока.
 - **Графити на стенах** — world-space paint на вертикальных поверхностях сложнее XZ-земли; проще отдельный mesh «плакат» с UV 0–1.
 - **RenderTexture** — разрешение, фильтр, `Graphics.Blit` каждый кадр при зажатой кнопке → профилировать на целевой GPU.
@@ -228,6 +229,6 @@ flowchart LR
 1. **`QuestProgressTrigger`** (или аналог): OnTriggerEnter / клик → `QuestBus.OnUpdateCounter(id, 1)` для Test Q1/Q2.
 2. **`QuestSequence`** или правило «один линейный active» + старт следующего `QuestSO` в `OnFinish`.
 3. Кнопки **Finish / Restart** в UI → `LoadScene` + очистка JSON.
-4. Параллельно заложить **`IWorldTask`** + **`PlayerToolMode`** (хотя бы enum + gate в `HarpoonInputHandler`).
+4. Параллельно заложить **`IWorldTask`**; **`PlayerToolMode`** (enum + gate) — сделано в `CarryableTools`.
 
 Не брать гирлянду, пока квест **завершается из геймплея**, а не только из Quest Debug.

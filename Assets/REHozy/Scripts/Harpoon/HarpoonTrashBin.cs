@@ -35,5 +35,31 @@ namespace REHozy.Harpoon
 
             return volume.bounds.Contains(worldPosition);
         }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            TryConsumeMountable(other);
+        }
+
+        private void OnTriggerStay(Collider other)
+        {
+            TryConsumeMountable(other);
+        }
+
+        private static void TryConsumeMountable(Collider other)
+        {
+            if (other == null)
+            {
+                return;
+            }
+
+            var item = other.GetComponentInParent<HarpoonMountableItem>();
+            if (item == null || item.transform.parent != null)
+            {
+                return;
+            }
+
+            item.ConsumeInTrashBin();
+        }
     }
 }
