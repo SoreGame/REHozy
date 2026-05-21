@@ -15,6 +15,8 @@ namespace REHozy.Harpoon
         [SerializeField] private Collider pickupCollider;
 
         [Header("Interaction")]
+        [Tooltip("Trigger collider of the Home area. Return-on-hold and cargo drop work only while the harpoon is inside this volume.")]
+        [SerializeField] private Collider homeZone;
         [SerializeField] private float impaleRadius = 0.35f;
         [SerializeField] private LayerMask mountableMask = ~0;
         [SerializeField] private float dropHoldDuration = 2f;
@@ -134,8 +136,7 @@ namespace REHozy.Harpoon
                 return false;
             }
 
-            var bin = FindTrashBinAt(transform.position);
-            if (bin == null)
+            if (!IsInHomeZone() && FindTrashBinAt(transform.position) == null)
             {
                 return false;
             }
@@ -144,9 +145,27 @@ namespace REHozy.Harpoon
             return true;
         }
 
+        public bool IsInHomeZone()
+        {
+            if (homeZone == null || !homeZone.enabled)
+            {
+                return false;
+            }
+
+            var testPoint = transform.position;
+            if (_state == HarpoonState.Carried && carryDriver != null
+                && carryDriver.TryGetGroundAnchor(out var groundPoint))
+            {
+                testPoint = groundPoint;
+            }
+
+            var closest = homeZone.ClosestPoint(testPoint);
+            return (closest - testPoint).sqrMagnitude < 0.0001f;
+        }
+
         public void StartReturnHome()
         {
-            if (_state != HarpoonState.Carried || _mountedItem != null)
+            if (_state != HarpoonState.Carried || _mountedItem != null || !IsInHomeZone())
             {
                 return;
             }
@@ -161,7 +180,7 @@ namespace REHozy.Harpoon
 
         public void StartBlockedReturnHold()
         {
-            if (_state != HarpoonState.Carried || _mountedItem == null)
+            if (_state != HarpoonState.Carried || _mountedItem == null || !IsInHomeZone())
             {
                 return;
             }

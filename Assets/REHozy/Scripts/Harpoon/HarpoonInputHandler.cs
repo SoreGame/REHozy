@@ -21,6 +21,12 @@ namespace REHozy.Harpoon
         private float _pressStartTime;
         private bool _holdActionTriggered;
 
+        /// <summary>True while LMB is held during carry and return-hold has not fired yet.</summary>
+        public bool IsCarriedReturnHoldInProgress { get; private set; }
+
+        /// <summary>0–1 progress toward return-hold completion; 0 when not in progress.</summary>
+        public float CarriedReturnHoldProgress01 { get; private set; }
+
         private void Awake()
         {
             if (harpoon == null)
@@ -74,15 +80,26 @@ namespace REHozy.Harpoon
             switch (harpoon.State)
             {
                 case HarpoonState.OnGround:
+                    ClearCarriedReturnHoldProgress();
                     UpdateOnGroundInput();
                     break;
                 case HarpoonState.Carried:
                     UpdateCarriedInput();
                     break;
                 case HarpoonState.Returning:
+                    ClearCarriedReturnHoldProgress();
                     harpoon.TickReturning();
                     break;
+                default:
+                    ClearCarriedReturnHoldProgress();
+                    break;
             }
+        }
+
+        private void ClearCarriedReturnHoldProgress()
+        {
+            IsCarriedReturnHoldInProgress = false;
+            CarriedReturnHoldProgress01 = 0f;
         }
 
         private void UpdateOnGroundInput()
@@ -114,6 +131,7 @@ namespace REHozy.Harpoon
 
             if (harpoon.State != HarpoonState.Carried)
             {
+                ClearCarriedReturnHoldProgress();
                 return;
             }
 
@@ -125,22 +143,32 @@ namespace REHozy.Harpoon
 
             if (IsAttackPressed() && !_holdActionTriggered)
             {
-                var held = Time.time - _pressStartTime;
-                if (held >= harpoon.DropHoldDuration)
+                if (harpoon.IsInHomeZone())
                 {
-                    _holdActionTriggered = true;
-                    if (harpoon.HasMountedItem)
+                    var held = Time.time - _pressStartTime;
+                    var duration = Mathf.Max(harpoon.DropHoldDuration, 0.01f);
+                    IsCarriedReturnHoldInProgress = true;
+                    CarriedReturnHoldProgress01 = Mathf.Clamp01(held / duration);
+
+                    if (held >= duration)
                     {
-                        harpoon.StartBlockedReturnHold();
-                    }
-                    else
-                    {
-                        harpoon.StartReturnHome();
+                        _holdActionTriggered = true;
+                        ClearCarriedReturnHoldProgress();
+                        if (harpoon.HasMountedItem)
+                        {
+                            harpoon.StartBlockedReturnHold();
+                        }
+                        else
+                        {
+                            harpoon.StartReturnHome();
+                        }
                     }
                 }
 
                 return;
             }
+
+            ClearCarriedReturnHoldProgress();
 
             if (WasAttackReleasedThisFrame() && !_holdActionTriggered)
             {

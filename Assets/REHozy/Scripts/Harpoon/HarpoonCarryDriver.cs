@@ -14,12 +14,19 @@ namespace REHozy.Harpoon
         [SerializeField] private float maxRayDistance = 200f;
         [SerializeField] private Vector3 tipForwardAxis = Vector3.forward;
 
-        [Header("Smooth carry")]
+        [Header("Smooth carry — empty")]
         [SerializeField] private float positionSmoothTime = 0.1f;
         [SerializeField] private float maxTiltAngle = 14f;
-        [SerializeField] private float maxTiltAngleWithCargo = 28f;
         [SerializeField] private float tiltDegreesPerSpeed = 4f;
         [SerializeField] private float tiltSmoothTime = 0.14f;
+
+        [Header("Smooth carry — with cargo")]
+        [SerializeField] private float positionSmoothTimeWithCargo = 0.25f;
+        [SerializeField] private float maxTiltAngleWithCargo = 28f;
+        [SerializeField] private float tiltDegreesPerSpeedWithCargo = 2.5f;
+        [SerializeField] private float tiltSmoothTimeWithCargo = 0.28f;
+
+        [Header("Smooth carry — shared")]
         [SerializeField] private float minTiltSpeed = 0.15f;
 
         private Vector3 _smoothedPosition;
@@ -100,17 +107,22 @@ namespace REHozy.Harpoon
                 ResetCarryMotion(root.position);
             }
 
+            var posSmooth = hasCargo ? positionSmoothTimeWithCargo : positionSmoothTime;
+            var tiltCap = hasCargo ? maxTiltAngleWithCargo : maxTiltAngle;
+            var tiltPerSpeed = hasCargo ? tiltDegreesPerSpeedWithCargo : tiltDegreesPerSpeed;
+            var tiltSmooth = hasCargo ? tiltSmoothTimeWithCargo : tiltSmoothTime;
+
             _smoothedPosition = Vector3.SmoothDamp(
                 _smoothedPosition,
                 targetPosition,
                 ref _positionSmoothVelocity,
-                positionSmoothTime);
+                Mathf.Max(posSmooth, 0.01f));
 
             root.SetPositionAndRotation(_smoothedPosition, baseRotation);
 
             if (tipPivot == null)
             {
-                _currentTilt = Mathf.SmoothDamp(_currentTilt, 0f, ref _tiltSmoothVelocity, tiltSmoothTime);
+                _currentTilt = Mathf.SmoothDamp(_currentTilt, 0f, ref _tiltSmoothVelocity, tiltSmooth);
                 _lastSmoothedPosition = _smoothedPosition;
                 return true;
             }
@@ -121,7 +133,6 @@ namespace REHozy.Harpoon
 
             var horizontalVelocity = new Vector3(moveVelocity.x, 0f, moveVelocity.z);
             var targetTilt = 0f;
-            var tiltCap = hasCargo ? maxTiltAngleWithCargo : maxTiltAngle;
 
             if (horizontalVelocity.sqrMagnitude >= minTiltSpeed * minTiltSpeed)
             {
@@ -137,12 +148,12 @@ namespace REHozy.Harpoon
                 }
 
                 targetTilt = Mathf.Clamp(
-                    horizontalVelocity.magnitude * tiltDegreesPerSpeed,
+                    horizontalVelocity.magnitude * tiltPerSpeed,
                     0f,
                     tiltCap);
             }
 
-            _currentTilt = Mathf.SmoothDamp(_currentTilt, targetTilt, ref _tiltSmoothVelocity, tiltSmoothTime);
+            _currentTilt = Mathf.SmoothDamp(_currentTilt, targetTilt, ref _tiltSmoothVelocity, tiltSmooth);
 
             if (_currentTilt > 0.01f)
             {

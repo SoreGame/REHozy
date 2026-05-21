@@ -21,16 +21,17 @@ namespace REHozy.EditorTools
             }
 
             var bridgeY = -5.5f;
-            var harpoonRoot = CreateHarpoon(new Vector3(-76f, bridgeY + 0.6f, -11f));
+            var homePosition = new Vector3(-72f, bridgeY, -12f);
+            var homeCollider = CreateHomeCollider(homePosition);
+            var harpoonRoot = CreateHarpoon(new Vector3(-76f, bridgeY + 0.6f, -11f), homeCollider);
             CreateMountable(new Vector3(-74f, bridgeY + 0.35f, -9.5f));
-            CreateTrashBin(new Vector3(-72f, bridgeY, -12f));
             CreateGameplay(harpoonRoot);
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             Debug.Log("Harpoon test objects created.");
         }
 
-        private static GameObject CreateHarpoon(Vector3 position)
+        private static GameObject CreateHarpoon(Vector3 position, Collider homeZone)
         {
             var root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             root.name = "Harpoon";
@@ -70,6 +71,7 @@ namespace REHozy.EditorTools
             so.FindProperty("mountSocket").objectReferenceValue = socket;
             so.FindProperty("carryDriver").objectReferenceValue = carry;
             so.FindProperty("pickupCollider").objectReferenceValue = pickup;
+            so.FindProperty("homeZone").objectReferenceValue = homeZone;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -84,15 +86,15 @@ namespace REHozy.EditorTools
             item.AddComponent<HarpoonMountableItem>();
         }
 
-        private static void CreateTrashBin(Vector3 position)
+        private static Collider CreateHomeCollider(Vector3 position)
         {
-            var bin = new GameObject("TrashBin");
-            bin.transform.position = position;
-            var col = bin.AddComponent<BoxCollider>();
+            var home = new GameObject("HarpoonHome");
+            home.transform.position = position;
+            var col = home.AddComponent<BoxCollider>();
             col.isTrigger = true;
-            col.size = new Vector3(1.2f, 1f, 1.2f);
-            col.center = new Vector3(0f, 0.5f, 0f);
-            bin.AddComponent<HarpoonTrashBin>();
+            col.size = new Vector3(4f, 2f, 4f);
+            col.center = new Vector3(0f, 1f, 0f);
+            return col;
         }
 
         private static void CreateGameplay(GameObject harpoon)
@@ -100,6 +102,7 @@ namespace REHozy.EditorTools
             var go = new GameObject("HarpoonGameplay");
             var input = go.AddComponent<HarpoonInputHandler>();
             var reticle = go.AddComponent<HarpoonAimReticleUI>();
+            var returnHoldUi = go.AddComponent<HarpoonReturnHoldUI>();
 
             var attackRef = AssetDatabase.LoadAssetAtPath<InputActionReference>(
                 "Assets/REHozy/Settings/InputAttack.asset");
@@ -118,6 +121,12 @@ namespace REHozy.EditorTools
             soReticle.FindProperty("carryDriver").objectReferenceValue = harpoon.GetComponent<HarpoonCarryDriver>();
             soReticle.FindProperty("worldCamera").objectReferenceValue = UnityEngine.Camera.main;
             soReticle.ApplyModifiedPropertiesWithoutUndo();
+
+            var soReturnHold = new SerializedObject(returnHoldUi);
+            soReturnHold.FindProperty("harpoon").objectReferenceValue = harpoon.GetComponent<HarpoonController>();
+            soReturnHold.FindProperty("inputHandler").objectReferenceValue = input;
+            soReturnHold.FindProperty("worldCamera").objectReferenceValue = UnityEngine.Camera.main;
+            soReturnHold.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }
