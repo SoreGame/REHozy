@@ -226,6 +226,15 @@ PlayerToolModeState.Active = PlayerToolMode.Brush;
 
 Реализует [`ICarryableToolCarriedUpdate`](../Assets/REHozy/Scripts/CarryableTools/ICarryableToolCarriedUpdate.cs); вызывается из `CarryableToolInputHandler` каждый кадр в переноске. В Home при hold-return копание блокируется (`returnHoldInProgress`).
 
+### Квест «убрать грязь»
+
+1. `QuestSO` с **Goal = 100** (100% убранной грязи).
+2. На сцене: [`DirtQuestTracker`](../Assets/REHozy/Scripts/Dirt/DirtQuestTracker.cs) + ссылка на этот квест.
+3. На патчах грязи (опционально): [`DirtPatchQuestLink`](../Assets/REHozy/Scripts/Dirt/DirtPatchQuestLink.cs) с тем же `QuestSO`.
+4. Старт квеста через `QuestBus.OnStart` / `TestQuestActivator`.
+
+Прогресс растёт по мере уменьшения deform map; при остатке грязи &lt; **5%** (настраивается) квест добивается до Goal, грязь полностью очищается и скрывается.
+
 ---
 
 ## Куда выносить общий код (по мере роста проекта)

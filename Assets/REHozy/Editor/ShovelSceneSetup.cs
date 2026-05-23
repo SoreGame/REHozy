@@ -208,6 +208,29 @@ namespace REHozy.EditorTools
             patch.AddComponent<DirtDeformPatch>();
         }
 
+        public static void EnsureDirtQuestTracker(QuestSO quest)
+        {
+            if (quest == null)
+            {
+                return;
+            }
+
+            var existing = Object.FindFirstObjectByType<DirtQuestTracker>();
+            if (existing != null)
+            {
+                var so = new SerializedObject(existing);
+                so.FindProperty("quest").objectReferenceValue = quest;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                return;
+            }
+
+            var trackerGo = new GameObject("DirtQuestTracker");
+            var tracker = trackerGo.AddComponent<DirtQuestTracker>();
+            var trackerSo = new SerializedObject(tracker);
+            trackerSo.FindProperty("quest").objectReferenceValue = quest;
+            trackerSo.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static Material GetOrCreateDirtMaterial()
         {
             var existing = AssetDatabase.LoadAssetAtPath<Material>(DirtMaterialPath);

@@ -51,12 +51,12 @@ namespace REHozy.CarryableTools
         public bool TryGetGroundAnchor(out Vector3 groundPoint)
         {
             groundPoint = default;
-            if (!TryResolveAim(out var anchor, out var groundY))
+            if (!TryResolveAim(out var anchor, out _))
             {
                 return false;
             }
 
-            groundPoint = new Vector3(anchor.x, groundY, anchor.z);
+            groundPoint = anchor;
             return true;
         }
 
@@ -65,21 +65,23 @@ namespace REHozy.CarryableTools
             position = default;
             rotation = default;
 
-            if (!TryResolveAim(out var anchor, out var groundY))
+            if (!TryResolveAim(out var anchor, out var surfaceNormal))
             {
                 return false;
             }
 
-            position = new Vector3(anchor.x, groundY + heightOffset, anchor.z);
+            position = anchor + surfaceNormal * heightOffset;
             var tipDir = transform.TransformDirection(tipForwardAxis.normalized);
             if (tipDir.sqrMagnitude < 0.0001f)
             {
                 tipDir = transform.forward;
             }
 
-            rotation = Quaternion.FromToRotation(tipDir, Vector3.down) * transform.rotation;
+            rotation = Quaternion.FromToRotation(tipDir, -surfaceNormal) * transform.rotation;
             return true;
         }
+
+        public UnityEngine.Camera ResolveCameraForAim() => ResolveCamera();
 
         public void ResetCarryMotion(Vector3 worldPosition)
         {
@@ -159,10 +161,10 @@ namespace REHozy.CarryableTools
             return true;
         }
 
-        private bool TryResolveAim(out Vector3 anchor, out float groundY)
+        private bool TryResolveAim(out Vector3 anchor, out Vector3 surfaceNormal)
         {
             anchor = default;
-            groundY = 0f;
+            surfaceNormal = Vector3.up;
 
             var cam = ResolveCamera();
             if (cam == null)
@@ -170,22 +172,32 @@ namespace REHozy.CarryableTools
                 return false;
             }
 
+            var aimOverride = GetComponent<ICarryableAimOverride>();
+            if (aimOverride != null
+                && aimOverride.TryOverrideAim(cam, out anchor, out surfaceNormal))
+            {
+                return true;
+            }
+
             if (!CarryableMouseRay.TryGetRay(cam, out var ray))
             {
                 return false;
             }
+
             if (!Physics.Raycast(ray, out var hit, maxRayDistance, groundMask, QueryTriggerInteraction.Ignore))
             {
                 return false;
             }
 
             anchor = hit.point;
+            surfaceNormal = hit.normal;
+
             var downOrigin = new Vector3(anchor.x, rayStartHeight, anchor.z);
-            groundY = anchor.y;
             if (Physics.Raycast(downOrigin, Vector3.down, out var downHit, rayStartHeight + 10f, groundMask,
                     QueryTriggerInteraction.Ignore))
             {
-                groundY = downHit.point.y;
+                anchor = new Vector3(anchor.x, downHit.point.y, anchor.z);
+                surfaceNormal = Vector3.up;
             }
 
             return true;
