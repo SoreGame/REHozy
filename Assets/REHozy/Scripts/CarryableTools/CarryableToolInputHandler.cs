@@ -109,7 +109,20 @@ namespace REHozy.CarryableTools
             }
         }
 
-        private bool IsToolActive() => PlayerToolModeState.Active == tool.ToolModeId;
+        private bool IsToolActive()
+        {
+            if (tool == null)
+            {
+                return false;
+            }
+
+            if (tool.State is CarryableToolState.Carried or CarryableToolState.Busy)
+            {
+                return true;
+            }
+
+            return PlayerToolModeState.Active == tool.ToolModeId;
+        }
 
         public void RefreshToolBinding()
         {

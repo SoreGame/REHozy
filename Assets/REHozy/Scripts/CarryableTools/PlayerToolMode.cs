@@ -8,6 +8,7 @@ namespace REHozy.CarryableTools
         Brush,
         Water,
         FlameCarrier,
+        Torch,
         PropPlacement,
         Garland
     }
