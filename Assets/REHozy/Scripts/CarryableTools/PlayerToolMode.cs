@@ -4,6 +4,7 @@ namespace REHozy.CarryableTools
     {
         None,
         Harpoon,
+        Shovel,
         Brush,
         Water,
         FlameCarrier,

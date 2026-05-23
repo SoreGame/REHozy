@@ -24,6 +24,11 @@ namespace REHozy.CarryableTools
         [SerializeField] private float blockedBlinkSpeed = 5f;
         [SerializeField] private bool createUiIfMissing = true;
 
+        public void BindToTool(CarryableToolCore core)
+        {
+            tool = core;
+        }
+
         private void Awake()
         {
             if (tool == null)

@@ -17,6 +17,12 @@ namespace REHozy.CarryableTools
         [SerializeField] private Color reticleColor = new(1f, 1f, 1f, 0.9f);
         [SerializeField] private bool createUiIfMissing = true;
 
+        public void BindToTool(CarryableToolCore core)
+        {
+            tool = core;
+            carryDriver = core != null ? core.CarryDriver : null;
+        }
+
         private void Awake()
         {
             if (tool == null)

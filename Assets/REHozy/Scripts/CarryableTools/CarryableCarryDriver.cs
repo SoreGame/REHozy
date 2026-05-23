@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace REHozy.CarryableTools
 {
@@ -171,13 +170,10 @@ namespace REHozy.CarryableTools
                 return false;
             }
 
-            var mouse = Mouse.current;
-            if (mouse == null)
+            if (!CarryableMouseRay.TryGetRay(cam, out var ray))
             {
                 return false;
             }
-
-            var ray = cam.ScreenPointToRay(mouse.position.ReadValue());
             if (!Physics.Raycast(ray, out var hit, maxRayDistance, groundMask, QueryTriggerInteraction.Ignore))
             {
                 return false;

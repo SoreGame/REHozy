@@ -204,6 +204,30 @@ PlayerToolModeState.Active = PlayerToolMode.Brush;
 
 ---
 
+## Лопата и грязь (vertex deform, итерация 1)
+
+Эталон: [`ShovelToolActions`](../Assets/REHozy/Scripts/Dirt/ShovelToolActions.cs), [`DirtDeformPatch`](../Assets/REHozy/Scripts/Dirt/DirtDeformPatch.cs), шейдер [`SnowVertexLit`](../Assets/REHozy/Shaders/SnowVertexLit.shader).
+
+### Быстрый тест в сцене с гарпуном
+
+1. Меню **REHozy → Setup Shovel Test Objects** — добавляет `Shovel`, `DirtPatch_Test`.
+2. Меню **REHozy → Wire Tool Input To Shovel** — на `ToolGameplay` добавляет `CarryableToolModeBootstrap` (**Active Mode On Play = Shovel**), input/UI переключаются на лопату.
+3. **Play** → ЛКМ по лопате → зажатый ЛКМ по патчу грязи.
+
+**Почему лопата не поднимается:** нужны **оба** условия — режим `Shovel` и input, смотрящий на core лопаты. После Play статический `PlayerToolModeState` сбрасывается; без `CarryableToolModeBootstrap` снова будет `Harpoon`. `CarryableToolInputHandler` с **Bind Tool By Active Mode** сам находит core по режиму.
+
+Вернуть гарпун: **REHozy → Wire Tool Input To Harpoon** (если добавите симметричное меню) или на `ToolGameplay` → `Carryable Tool Mode Bootstrap` → **Active Mode On Play = Harpoon**, и перепривязать input на гарпун.
+
+### Ручной патч грязи
+
+На mesh (ProBuilder / Plane): `MeshCollider`, материал `LeftToMelt/SnowVertexLit` (отдельный instance), компонент `DirtDeformPatch`. Опционально layer **DirtPatch** и mask на `ShovelToolActions`.
+
+### Непрерывное действие при удержании ЛКМ
+
+Реализует [`ICarryableToolCarriedUpdate`](../Assets/REHozy/Scripts/CarryableTools/ICarryableToolCarriedUpdate.cs); вызывается из `CarryableToolInputHandler` каждый кадр в переноске. В Home при hold-return копание блокируется (`returnHoldInProgress`).
+
+---
+
 ## Куда выносить общий код (по мере роста проекта)
 
 Сейчас груз завязан на namespace `REHozy.Harpoon`. Когда появится второй инструмент с похожим грузом:

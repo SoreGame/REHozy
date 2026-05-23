@@ -7,6 +7,10 @@ namespace REHozy.CarryableTools
     [AddComponentMenu("REHozy/Carryable Tools/Carryable Tool Input Handler")]
     public sealed class CarryableToolInputHandler : MonoBehaviour
     {
+        [Header("Active Mode")]
+        [SerializeField] private PlayerToolMode activeModeOnPlay = PlayerToolMode.Harpoon;
+
+        [Header("Input")]
         [SerializeField] private CarryableToolCore tool;
         [SerializeField] private UnityEngine.Camera rayCamera;
         [SerializeField] private InputActionReference attackAction;
@@ -21,21 +25,21 @@ namespace REHozy.CarryableTools
         private float _pressStartTime;
         private bool _holdActionTriggered;
         private ICarryableToolActions _actions;
+        private ICarryableToolCarriedUpdate _carriedUpdate;
 
         public bool IsReturnHoldInProgress { get; private set; }
         public float ReturnHoldProgress01 { get; private set; }
 
         private void Awake()
         {
+            PlayerToolModeState.Active = activeModeOnPlay;
+
             if (tool == null)
             {
                 tool = FindFirstObjectByType<CarryableToolCore>();
             }
 
-            if (tool != null)
-            {
-                _actions = tool.GetComponent<ICarryableToolActions>();
-            }
+            RefreshToolBinding();
 
             ResolveInputActions();
 
@@ -52,11 +56,7 @@ namespace REHozy.CarryableTools
             _playerMap?.Enable();
             _attack?.Enable();
             CarryableGameplayLock.SetCanPickup(true);
-
-            if (PlayerToolModeState.Active == PlayerToolMode.None && tool != null)
-            {
-                PlayerToolModeState.Active = tool.ToolModeId;
-            }
+            RefreshToolBinding();
         }
 
         private void OnDisable()
@@ -68,23 +68,34 @@ namespace REHozy.CarryableTools
 
         private void Update()
         {
-            if (tool == null || !IsToolActive())
-            {
-                ClearReturnHoldProgress();
-                return;
-            }
+            RefreshToolBinding();
 
             if (_attack == null && !useMouseButtonFallback)
             {
                 return;
             }
 
+            if (tool == null)
+            {
+                ClearReturnHoldProgress();
+                return;
+            }
+
+            if (tool.State == CarryableToolState.OnGround)
+            {
+                ClearReturnHoldProgress();
+                UpdateOnGroundInput();
+                return;
+            }
+
+            if (!IsToolActive())
+            {
+                ClearReturnHoldProgress();
+                return;
+            }
+
             switch (tool.State)
             {
-                case CarryableToolState.OnGround:
-                    ClearReturnHoldProgress();
-                    UpdateOnGroundInput();
-                    break;
                 case CarryableToolState.Carried:
                     UpdateCarriedInput();
                     break;
@@ -100,6 +111,45 @@ namespace REHozy.CarryableTools
 
         private bool IsToolActive() => PlayerToolModeState.Active == tool.ToolModeId;
 
+        public void RefreshToolBinding()
+        {
+            var active = PlayerToolModeState.Active;
+            if (active == PlayerToolMode.None)
+            {
+                return;
+            }
+
+            if (tool != null && tool.ToolModeId == active)
+            {
+                return;
+            }
+
+            var cores = FindObjectsByType<CarryableToolCore>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            foreach (var core in cores)
+            {
+                if (core.ToolModeId != active)
+                {
+                    continue;
+                }
+
+                SetBoundTool(core);
+                return;
+            }
+        }
+
+        private void SetBoundTool(CarryableToolCore core)
+        {
+            tool = core;
+            _actions = tool != null ? tool.GetComponent<ICarryableToolActions>() : null;
+            _carriedUpdate = tool != null ? tool.GetComponent<ICarryableToolCarriedUpdate>() : null;
+
+            var reticle = GetComponent<CarryableAimReticleUI>();
+            reticle?.BindToTool(core);
+
+            var returnHoldUi = GetComponent<CarryableReturnHoldUI>();
+            returnHoldUi?.BindToTool(core);
+        }
+
         private void ClearReturnHoldProgress()
         {
             IsReturnHoldInProgress = false;
@@ -113,20 +163,30 @@ namespace REHozy.CarryableTools
                 _pressStartTime = Time.time;
                 _holdActionTriggered = false;
 
-                if (TryRaycastTool(out _))
+                if (TryPickUpToolUnderCursor())
                 {
-                    tool.EnterCarried();
+                    return;
                 }
-
-                return;
             }
 
             if (WasAttackReleasedThisFrame() && !_holdActionTriggered
-                && Time.time - _pressStartTime <= clickMaxDuration
-                && TryRaycastTool(out _))
+                && Time.time - _pressStartTime <= clickMaxDuration)
             {
-                tool.EnterCarried();
+                TryPickUpToolUnderCursor();
             }
+        }
+
+        private bool TryPickUpToolUnderCursor()
+        {
+            if (!TryRaycastPickableToolOnGround(out var pickable, out _))
+            {
+                return false;
+            }
+
+            PlayerToolModeState.Active = pickable.ToolModeId;
+            SetBoundTool(pickable);
+            pickable.EnterCarried();
+            return true;
         }
 
         private void UpdateCarriedInput()
@@ -174,10 +234,16 @@ namespace REHozy.CarryableTools
                     }
                 }
 
+                var attackHeldDuringHold = IsAttackPressed();
+                var returnHoldDuringHold = attackHeldDuringHold && !_holdActionTriggered && tool.IsInHomeZone();
+                _carriedUpdate?.OnCarriedUpdate(tool, attackHeldDuringHold, returnHoldDuringHold);
                 return;
             }
 
             ClearReturnHoldProgress();
+
+            var attackHeld = IsAttackPressed();
+            _carriedUpdate?.OnCarriedUpdate(tool, attackHeld, returnHoldInProgress: false);
 
             if (WasAttackReleasedThisFrame() && !_holdActionTriggered)
             {
@@ -188,10 +254,12 @@ namespace REHozy.CarryableTools
             }
         }
 
-        private bool TryRaycastTool(out RaycastHit hit)
+        private bool TryRaycastPickableToolOnGround(out CarryableToolCore pickable, out RaycastHit hit)
         {
+            pickable = null;
             hit = default;
-            if (!tool.CanBePickedUp())
+
+            if (!CarryableGameplayLock.CanPickup)
             {
                 return false;
             }
@@ -202,13 +270,10 @@ namespace REHozy.CarryableTools
                 return false;
             }
 
-            var mouse = Mouse.current;
-            if (mouse == null)
+            if (!CarryableMouseRay.TryGetRay(cam, out var ray))
             {
                 return false;
             }
-
-            var ray = cam.ScreenPointToRay(mouse.position.ReadValue());
             var hits = Physics.RaycastAll(ray, pickupMaxDistance, pickupMask, QueryTriggerInteraction.Ignore);
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
@@ -219,11 +284,21 @@ namespace REHozy.CarryableTools
                     continue;
                 }
 
-                if (candidate.collider.GetComponentInParent<CarryableToolCore>() == tool)
+                var core = candidate.collider.GetComponentInParent<CarryableToolCore>();
+                if (core == null || core.State != CarryableToolState.OnGround)
                 {
-                    hit = candidate;
-                    return true;
+                    continue;
                 }
+
+                PlayerToolModeState.Active = core.ToolModeId;
+                if (!core.CanBePickedUp())
+                {
+                    continue;
+                }
+
+                pickable = core;
+                hit = candidate;
+                return true;
             }
 
             return false;
