@@ -39,6 +39,7 @@ Shader "LeftToMelt/SnowVertexLit" {
         _DeformPrevMap ("(Temporal) Previous deform map", 2D) = "white" {}
         _DeformScale ("Deform UV Scale", Range(0.01, 0.5)) = 0.05
         _SnowHeight ("Snow displacement along normal", Range(0, 2)) = 0.15
+        _SnowGroundOffset ("Sink to ground when deform=0 (world units)", Range(0, 2)) = 0
         _SnowVisibilityCutoff ("Snow visibility cutoff", Range(0, 1)) = 0.1
         _GlobalOffsetXZ ("Offset XZ world", Vector) = (0, 0, 0, 0)
         [Toggle] _DeformSmoothEnable ("Smooth edges (round)", Float) = 1
@@ -128,6 +129,7 @@ Shader "LeftToMelt/SnowVertexLit" {
             half _DirtySnowScale;
             half _DeformScale;
             half _SnowHeight;
+            half _SnowGroundOffset;
             half _SnowVisibilityCutoff;
             half4 _GlobalOffsetXZ;
             half _DeformSmoothEnable;
@@ -336,6 +338,7 @@ Shader "LeftToMelt/SnowVertexLit" {
             CBUFFER_START(UnityPerMaterial)
             half _DeformScale;
             half _SnowHeight;
+            half _SnowGroundOffset;
             half _SnowVisibilityCutoff;
             half4 _GlobalOffsetXZ;
             half _DeformSmoothEnable;
@@ -421,6 +424,7 @@ Shader "LeftToMelt/SnowVertexLit" {
             CBUFFER_START(UnityPerMaterial)
             half _DeformScale;
             half _SnowHeight;
+            half _SnowGroundOffset;
             half _SnowVisibilityCutoff;
             half4 _GlobalOffsetXZ;
             half _DeformSmoothEnable;

@@ -41,14 +41,14 @@ namespace REHozy.Decoration
 
         private void Update()
         {
-            if (DecorationGameplayLock.IsAnyToolOccupyingHands())
-            {
-                return;
-            }
-
             if (DecorationCarrySession.IsCarrying)
             {
                 UpdateWhileCarrying();
+                return;
+            }
+
+            if (DecorationGameplayLock.IsAnyToolOccupyingHands())
+            {
                 return;
             }
 
@@ -60,6 +60,26 @@ namespace REHozy.Decoration
             UpdateWhileIdle();
         }
 
+        private void LateUpdate()
+        {
+            if (!DecorationCarrySession.IsCarrying)
+            {
+                return;
+            }
+
+            var active = DecorationCarrySession.Active;
+            if (active == null)
+            {
+                return;
+            }
+
+            var scrollNotches = DecorationScrollReader.ReadScrollNotches();
+            if (Mathf.Abs(scrollNotches) > 0.0001f)
+            {
+                active.ApplyScrollRotation(scrollNotches);
+            }
+        }
+
         private void UpdateWhileCarrying()
         {
             var active = DecorationCarrySession.Active;
@@ -69,8 +89,7 @@ namespace REHozy.Decoration
             }
 
             var cam = ResolveCamera();
-            var scroll = ReadNormalizedScroll();
-            active.TickCarried(cam, scroll);
+            active.TickCarried(cam);
 
             if (WasAttackPressedThisFrame())
             {
@@ -262,15 +281,5 @@ namespace REHozy.Decoration
                 && Mouse.current.leftButton.wasReleasedThisFrame;
         }
 
-        private static float ReadNormalizedScroll()
-        {
-            var mouse = Mouse.current;
-            if (mouse == null)
-            {
-                return 0f;
-            }
-
-            return mouse.scroll.ReadValue().y / 120f;
-        }
     }
 }

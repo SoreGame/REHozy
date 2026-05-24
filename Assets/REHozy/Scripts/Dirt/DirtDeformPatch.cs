@@ -18,12 +18,21 @@ namespace REHozy.Dirt
         private static readonly int EdgeFalloffRadialId = Shader.PropertyToID("_EdgeFalloffRadial");
         private static readonly int EdgeFalloffWidthId = Shader.PropertyToID("_EdgeFalloffWidth");
         private static readonly int EdgeFalloffEnableId = Shader.PropertyToID("_EdgeFalloffEnable");
+        private static readonly int SnowGroundOffsetId = Shader.PropertyToID("_SnowGroundOffset");
 
         [SerializeField] private MeshRenderer meshRenderer;
         [SerializeField] private int resolution = 256;
         [SerializeField] private bool hideWhenFullyEroded;
         [SerializeField] private float visibilityCutoff = 0.1f;
         [SerializeField] private bool previewInEditMode = true;
+
+        [Header("Ground contact")]
+        [Tooltip("Raycast down to align deform=0 with terrain below the patch mesh plane.")]
+        [SerializeField] private bool autoGroundOffset = true;
+        [SerializeField] private LayerMask groundRaycastMask = ~0;
+        [SerializeField] private float groundRaycastDistance = 8f;
+        [Tooltip("Used when Auto Ground Offset is off, or when no ground is hit.")]
+        [SerializeField] private float groundOffsetManual;
 
         [Header("Quest")]
         [Tooltip("Share of this patch's mass that counts for the dirt quest (0–1). Lower = quest reaches 100% sooner when visible dirt is gone.")]
@@ -42,6 +51,8 @@ namespace REHozy.Dirt
         private float _edgeFalloffWidthForQuest = 0.22f;
         private bool _edgeFalloffRadialForQuest = true;
         private bool _edgeFalloffEnabledForQuest = true;
+        private float[] _falloffWeights;
+        private float _cachedQuestMass;
 
         public static event Action<DirtDeformPatch> DirtMassChanged;
         public static event Action<DirtDeformPatch> DirtPlayModeReady;
@@ -161,8 +172,10 @@ namespace REHozy.Dirt
 
             _materialInstance = meshRenderer.material;
             ComputeWorldMapping();
+            ComputeGroundContactOffset();
             CreateDeformMap();
             ApplyShaderParams();
+            RebuildQuestMassCache();
         }
 
         private void RefreshEditorPreview()
@@ -195,6 +208,8 @@ namespace REHozy.Dirt
             }
 
             _pixelBuffer = null;
+            _falloffWeights = null;
+            _cachedQuestMass = 0f;
             _mapDirty = false;
             _editorPreviewActive = false;
 
@@ -319,6 +334,68 @@ namespace REHozy.Dirt
             _materialInstance.SetFloat(EdgeFalloffUseObjectPosId, 1f);
             _materialInstance.SetFloat(EdgeFalloffRadialId, 1f);
             _materialInstance.SetFloat(EdgeFalloffWidthId, 0.22f);
+            _materialInstance.SetFloat(SnowGroundOffsetId, _groundContactOffset);
+        }
+
+        private float _groundContactOffset;
+
+        private void ComputeGroundContactOffset()
+        {
+            if (!autoGroundOffset)
+            {
+                _groundContactOffset = Mathf.Max(0f, groundOffsetManual);
+                return;
+            }
+
+            if (meshRenderer == null)
+            {
+                _groundContactOffset = Mathf.Max(0f, groundOffsetManual);
+                return;
+            }
+
+            GetWorkPlane(out var pointOnPlane, out var planeNormal);
+            var origin = pointOnPlane + planeNormal * 0.05f;
+            var hits = Physics.RaycastAll(
+                origin,
+                -planeNormal,
+                groundRaycastDistance,
+                groundRaycastMask,
+                QueryTriggerInteraction.Ignore);
+
+            var bestDistance = float.MaxValue;
+            var closestOffset = 0f;
+            var found = false;
+
+            for (var i = 0; i < hits.Length; i++)
+            {
+                var hit = hits[i];
+                if (hit.collider == null || IsSelfOrChild(hit.collider.transform))
+                {
+                    continue;
+                }
+
+                var otherPatch = hit.collider.GetComponentInParent<DirtDeformPatch>();
+                if (otherPatch != null && otherPatch != this)
+                {
+                    continue;
+                }
+
+                if (hit.distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = hit.distance;
+                closestOffset = Mathf.Max(0f, Vector3.Dot(pointOnPlane - hit.point, planeNormal));
+                found = true;
+            }
+
+            _groundContactOffset = found ? closestOffset : Mathf.Max(0f, groundOffsetManual);
+        }
+
+        private bool IsSelfOrChild(Transform other)
+        {
+            return other == transform || other.IsChildOf(transform);
         }
 
         public bool TryErodeAtWorld(Vector3 worldPos, float brushRadiusWorld, float strengthPerSecond)
@@ -376,6 +453,7 @@ namespace REHozy.Dirt
                     }
 
                     _pixelBuffer[index] = newValue;
+                    ApplyQuestMassDelta(index, oldValue, newValue);
                     changed = true;
                 }
             }
@@ -431,22 +509,12 @@ namespace REHozy.Dirt
                 return 0f;
             }
 
-            SyncQuestFalloffFromMaterial();
-            var res = resolution;
-            var sum = 0f;
-
-            for (var y = 0; y < res; y++)
+            if (_falloffWeights == null || _falloffWeights.Length != _pixelBuffer.Length)
             {
-                var row = y * res;
-                for (var x = 0; x < res; x++)
-                {
-                    var falloff = GetFalloffWeightForTexel(x, y, res);
-                    var deform01 = _pixelBuffer[row + x] / 255f;
-                    sum += deform01 * falloff;
-                }
+                RebuildQuestMassCache();
             }
 
-            return sum;
+            return _cachedQuestMass;
         }
 
         public float GetRemainingRatio01()
@@ -480,6 +548,70 @@ namespace REHozy.Dirt
             {
                 _edgeFalloffEnabledForQuest = _materialInstance.GetFloat(EdgeFalloffEnableId) > 0.5f;
             }
+        }
+
+        private void RebuildQuestMassCache()
+        {
+            if (_pixelBuffer == null || _pixelBuffer.Length == 0)
+            {
+                _cachedQuestMass = 0f;
+                return;
+            }
+
+            BuildFalloffWeights();
+            RecomputeQuestMassFromBuffer();
+        }
+
+        private void BuildFalloffWeights()
+        {
+            if (_pixelBuffer == null)
+            {
+                return;
+            }
+
+            SyncQuestFalloffFromMaterial();
+            var count = _pixelBuffer.Length;
+            if (_falloffWeights == null || _falloffWeights.Length != count)
+            {
+                _falloffWeights = new float[count];
+            }
+
+            var res = resolution;
+            for (var y = 0; y < res; y++)
+            {
+                var row = y * res;
+                for (var x = 0; x < res; x++)
+                {
+                    _falloffWeights[row + x] = GetFalloffWeightForTexel(x, y, res);
+                }
+            }
+        }
+
+        private void RecomputeQuestMassFromBuffer()
+        {
+            if (_pixelBuffer == null || _falloffWeights == null)
+            {
+                _cachedQuestMass = 0f;
+                return;
+            }
+
+            var sum = 0f;
+            for (var i = 0; i < _pixelBuffer.Length; i++)
+            {
+                sum += _pixelBuffer[i] * _falloffWeights[i];
+            }
+
+            _cachedQuestMass = sum / 255f;
+        }
+
+        private void ApplyQuestMassDelta(int index, byte oldValue, byte newValue)
+        {
+            if (_falloffWeights == null || index < 0 || index >= _falloffWeights.Length)
+            {
+                return;
+            }
+
+            _cachedQuestMass += (newValue - oldValue) * _falloffWeights[index] / 255f;
         }
 
         private float GetFalloffWeightForTexel(int x, int y, int res)
@@ -529,6 +661,8 @@ namespace REHozy.Dirt
             {
                 _pixelBuffer[i] = 0;
             }
+
+            _cachedQuestMass = 0f;
 
             if (_deformMap != null)
             {
@@ -588,7 +722,9 @@ namespace REHozy.Dirt
                 }
 
                 ComputeWorldMapping();
+                ComputeGroundContactOffset();
                 ApplyShaderParams();
+                RebuildQuestMassCache();
                 return;
             }
 

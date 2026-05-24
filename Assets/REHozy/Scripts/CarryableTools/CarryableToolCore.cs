@@ -95,6 +95,21 @@ namespace REHozy.CarryableTools
             _startPose = new Pose(transform.position, transform.rotation);
         }
 
+        /// <summary>
+        /// Snaps to home pose and ground state (e.g. before quest hides the tool).
+        /// </summary>
+        public void SnapToHomeGround()
+        {
+            if (_phaseRoutine != null)
+            {
+                StopCoroutine(_phaseRoutine);
+                _phaseRoutine = null;
+            }
+
+            transform.SetPositionAndRotation(_startPose.position, _startPose.rotation);
+            ApplyOnGround();
+        }
+
         public bool CanBePickedUp()
         {
             return _state == CarryableToolState.OnGround

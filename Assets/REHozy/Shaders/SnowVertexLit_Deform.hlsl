@@ -108,7 +108,8 @@ void REHOZY_ApplySnowVertexDeform(
     deform = saturate(deform * falloff + noise);
     snowAmount = deform;
     edgeFactor = (1.0 - falloff) * (_EdgeFalloffEnable > 0.5 ? 1.0 : 0.0);
-    posOS += normalOS * (deform * _SnowHeight);
+    // deform=0 sinks to ground contact; deform=1 adds full pile height above the mesh plane
+    posOS += normalOS * (deform * _SnowHeight + (deform - 1.0) * _SnowGroundOffset);
 }
 
 #endif

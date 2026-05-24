@@ -88,6 +88,7 @@ Material:
     - _SnowBlendHigh: 1
     - _SnowBlendLow: 0.5
     - _SnowHeight: 0.34
+    - _SnowGroundOffset: 0
     - _SnowScale: 0.55
     - _SnowVisibilityCutoff: 0.071
     - _SpecularStrength: 0.8

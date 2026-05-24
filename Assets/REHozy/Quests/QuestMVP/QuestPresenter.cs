@@ -20,10 +20,6 @@ public class QuestPresenter : MonoBehaviour
     private void Awake()
     {
         jsonSaver = new QuestJsonSaver();
-    }
-
-    private void Start()
-    {
         LoadFromJson();
     }
     private void LoadFromJson() 
@@ -37,6 +33,8 @@ public class QuestPresenter : MonoBehaviour
         { 
             Debug.LogWarning("Json file empty or not exist");
         }
+
+        QuestBus.GetInstance().OnRuntimeLoaded?.Invoke();
     }
 
     private void OnDisable()
@@ -83,9 +81,6 @@ public class QuestPresenter : MonoBehaviour
         if (quest.progress >= quest.goal)
         {
             FinishQuest(id);
-            quest.selected = false;
-            quest.active = false;
-            quest.finished = true;
             return;
         }
         QuestBus.GetInstance().OnUpdateData?.Invoke();
@@ -117,6 +112,10 @@ public class QuestPresenter : MonoBehaviour
             return;
         }
         _model._activeQuest.Remove(quest);
+        quest.active = false;
+        quest.finished = true;
+        quest.selected = false;
+        QuestBus.GetInstance().OnFinish?.Invoke(quest);
         _model.OnFinish(quest);
     }
 
@@ -184,9 +183,6 @@ public class QuestPresenter : MonoBehaviour
 
         quest.progress = quest.goal;
         FinishQuest(id);
-        quest.selected = false;
-        quest.active = false;
-        quest.finished = true;
         QuestBus.GetInstance().OnUpdateData?.Invoke();
     }
 
@@ -227,6 +223,7 @@ public class QuestPresenter : MonoBehaviour
         CanSave = true;
         jsonSaver.Save(key, _model._data);
         QuestBus.GetInstance().OnUpdateData?.Invoke();
+        QuestBus.GetInstance().OnRuntimeLoaded?.Invoke();
     }
 
     public void ReloadFromScriptableObjects(bool writeSave = true)

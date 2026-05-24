@@ -76,7 +76,8 @@ interface IWorldTask {
 
 - [ ] **`IWorldTask`** + `InteractionContext` в `Assets/REHozy/Scripts/Gameplay/`
 - [ ] **Линейный оркестратор** — последовательная активация `QuestSO`; при `progress >= goal` → следующее + опционально `ColorSpreadController.SetStep` *(сейчас: [`QuestPresenter`](../Assets/REHozy/Quests/QuestMVP/QuestPresenter.cs) + журнал активных, без авто-цепочки)*
-- [x] **События квеста** — `QuestBus` + `QuestStateInfo.OnStart` / `OnFinish` в [`QuestModel`](../Assets/REHozy/Quests/QuestMVP/QuestModel.cs) *(в сцене пока не заполнены)*
+- [x] **События квеста** — `QuestBus` + `QuestStateInfo.OnStart` / `OnFinish` в [`QuestModel`](../Assets/REHozy/Quests/QuestMVP/QuestModel.cs)
+- [x] **Появление предметов** — `QuestWorldEffects` в [`QuestModel`](../Assets/REHozy/Quests/QuestMVP/QuestModel.cs) / **Quests Events** + [`Docs/QuestWorldFlow.md`](QuestWorldFlow.md)
 - [x] **`PlayerToolMode`** — enum + gate в [`CarryableToolInputHandler`](../Assets/REHozy/Scripts/CarryableTools/CarryableToolInputHandler.cs); переключение по квесту — TODO
 
 Это сэкономит **8–12 ч** по сравнению с отдельной логикой на каждую механику.

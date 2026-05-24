@@ -27,6 +27,8 @@ namespace REHozy.Dirt
         private int _lastSentProgress;
         private bool _clearedAfterComplete;
         private bool _wasQuestActive;
+        private bool _progressDirty;
+        private QuestPresenter _cachedPresenter;
 
         private void Start()
         {
@@ -77,6 +79,12 @@ namespace REHozy.Dirt
             if (questActive && _initialMass <= 0f)
             {
                 BeginTracking();
+            }
+
+            if (_progressDirty && questActive && !_clearedAfterComplete && _initialMass > 0f)
+            {
+                _progressDirty = false;
+                ReportProgress();
             }
         }
 
@@ -184,7 +192,7 @@ namespace REHozy.Dirt
                 return;
             }
 
-            ReportProgress();
+            _progressDirty = true;
         }
 
         private void ReportProgress()
@@ -256,13 +264,17 @@ namespace REHozy.Dirt
                 return false;
             }
 
-            var presenter = FindFirstObjectByType<QuestPresenter>();
-            if (presenter == null || presenter.Model == null)
+            if (_cachedPresenter == null)
+            {
+                _cachedPresenter = FindFirstObjectByType<QuestPresenter>();
+            }
+
+            if (_cachedPresenter == null || _cachedPresenter.Model == null)
             {
                 return false;
             }
 
-            return presenter.Model.GetActiveQuest(quest.QuestId) != null;
+            return _cachedPresenter.Model.GetActiveQuest(quest.QuestId) != null;
         }
 
         private float GetPatchMassScale(DirtDeformPatch patch)

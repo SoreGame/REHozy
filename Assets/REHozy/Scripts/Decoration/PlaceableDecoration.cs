@@ -13,14 +13,16 @@ namespace REHozy.Decoration
         [SerializeField] private float groundSnapOffset;
         [SerializeField] private LayerMask groundMask = ~0;
 
+        [Header("Carry")]
+        [SerializeField] private float carryPositionSmoothTime = 0.1f;
+
         [Header("Carry rotation")]
-        [Tooltip("Degrees added per mouse-wheel step while the wheel is moving. No scroll = no rotation.")]
-        [SerializeField] private float scrollYawDegreesPerNotch = 12f;
+        [Tooltip("Yaw degrees per mouse-wheel notch. Only changes while scrolling; no inertia.")]
+        [SerializeField] private float scrollYawDegreesPerNotch = 5f;
 
         private PlaceableDecorationState _state = PlaceableDecorationState.Placed;
         private float _carryYawDegrees;
-        private Quaternion _pickupPreserveRotation;
-        private bool _syncYawOffsetFromPickup;
+        private Vector3 _carryPositionVelocity;
         private Collider[] _colliders = System.Array.Empty<Collider>();
         private Rigidbody _rigidbody;
         private DecorationPlacementPreview _placementPreview;
@@ -96,52 +98,52 @@ namespace REHozy.Decoration
                 _rigidbody.isKinematic = true;
             }
 
-            _pickupPreserveRotation = transform.rotation;
-            _carryYawDegrees = 0f;
-            _syncYawOffsetFromPickup = true;
+            _carryYawDegrees = transform.eulerAngles.y;
+            _carryPositionVelocity = Vector3.zero;
             carryDriver?.ResetCarryMotion(transform.position);
             _placementPreview?.SetVisible(true);
             SetCursorVisible(false);
         }
 
-        public void TickCarried(UnityEngine.Camera camera, float normalizedScroll)
+        public void ApplyScrollRotation(float scrollNotches)
         {
-            if (_state != PlaceableDecorationState.Carried || carryDriver == null)
+            if (_state != PlaceableDecorationState.Carried || Mathf.Abs(scrollNotches) < 0.0001f)
             {
                 return;
             }
 
-            if (Mathf.Abs(normalizedScroll) > 0.0001f)
+            _carryYawDegrees += scrollNotches * scrollYawDegreesPerNotch;
+            transform.rotation = Quaternion.Euler(0f, _carryYawDegrees, 0f);
+        }
+
+        public void TickCarried(UnityEngine.Camera camera)
+        {
+            if (_state != PlaceableDecorationState.Carried)
             {
-                _carryYawDegrees += normalizedScroll * scrollYawDegreesPerNotch;
+                return;
             }
 
-            carryDriver.TryApplySmoothedCarry(transform, Pivot, hasCargo: false);
-            ApplyCarryYaw(transform.rotation);
+            if (carryDriver != null)
+            {
+                ApplyCarryPositionOnly();
+            }
+
+            transform.rotation = Quaternion.Euler(0f, _carryYawDegrees, 0f);
             UpdatePlacementPreview(camera);
         }
 
-        private void ApplyCarryYaw(Quaternion driverRotation)
+        private void ApplyCarryPositionOnly()
         {
-            if (_syncYawOffsetFromPickup)
+            if (carryDriver == null || !carryDriver.TryGetCarryPose(out var targetPosition, out _))
             {
-                _carryYawDegrees = SignedAngleOnHorizontalPlane(driverRotation, _pickupPreserveRotation);
-                _syncYawOffsetFromPickup = false;
+                return;
             }
 
-            transform.rotation = Quaternion.AngleAxis(_carryYawDegrees, Vector3.up) * driverRotation;
-        }
-
-        private static float SignedAngleOnHorizontalPlane(Quaternion fromDriver, Quaternion targetRotation)
-        {
-            var fromForward = Vector3.ProjectOnPlane(fromDriver * Vector3.forward, Vector3.up);
-            var targetForward = Vector3.ProjectOnPlane(targetRotation * Vector3.forward, Vector3.up);
-            if (fromForward.sqrMagnitude < 0.0001f || targetForward.sqrMagnitude < 0.0001f)
-            {
-                return 0f;
-            }
-
-            return Vector3.SignedAngle(fromForward.normalized, targetForward.normalized, Vector3.up);
+            transform.position = Vector3.SmoothDamp(
+                transform.position,
+                targetPosition,
+                ref _carryPositionVelocity,
+                Mathf.Max(carryPositionSmoothTime, 0.01f));
         }
 
         public bool TryPlaceAtCursor(UnityEngine.Camera camera)

@@ -20,4 +20,6 @@ public class QuestBus
     public Action<QuestData, Image> OnHighlighted;
     public Action<QuestData> OnSelect;
     public Action<QuestData> OnInterrupt;
+    public Action<QuestData> OnFinish;
+    public Action OnRuntimeLoaded;
 }
