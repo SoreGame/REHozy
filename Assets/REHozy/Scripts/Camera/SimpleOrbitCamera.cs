@@ -1,3 +1,4 @@
+using REHozy.Decoration;
 using UnityEngine;
 
 namespace REHozy.Camera
@@ -21,6 +22,7 @@ namespace REHozy.Camera
         [SerializeField] private float distance = 8f;
         [SerializeField] private Vector2 distanceLimits = new Vector2(2f, 18f);
         [SerializeField] private float zoomSensitivity = 2.5f;
+        [SerializeField] private float zoomDragSensitivity = 0.02f;
 
         [Header("Input")]
         [SerializeField] private int rotateMouseButton = 1; // 1 = RMB
@@ -59,17 +61,28 @@ namespace REHozy.Camera
             }
 
             var rotateHeld = IsMouseButtonHeld(rotateMouseButton);
+            var carryingDecoration = DecorationCarrySession.IsCarrying;
+
             if (rotateHeld)
             {
                 var delta = GetMouseDelta();
                 yaw += delta.x * rotationSensitivity;
 
                 var ySign = invertY ? 1f : -1f;
-                pitch += delta.y * rotationSensitivity * ySign;
-                pitch = Mathf.Clamp(pitch, pitchLimits.x, pitchLimits.y);
+                if (carryingDecoration)
+                {
+                    pitch += delta.y * rotationSensitivity * ySign;
+                    pitch = Mathf.Clamp(pitch, pitchLimits.x, pitchLimits.y);
+                }
+                else
+                {
+                    var zoomSign = invertY ? -1f : 1f;
+                    distance -= delta.y * zoomDragSensitivity * zoomSign;
+                    distance = Mathf.Clamp(distance, distanceLimits.x, distanceLimits.y);
+                }
             }
 
-            if (zoomWithoutButton || rotateHeld)
+            if ((zoomWithoutButton || rotateHeld) && !carryingDecoration)
             {
                 var scroll = GetScroll();
                 if (Mathf.Abs(scroll) > 0.0001f)

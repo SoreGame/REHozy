@@ -1,3 +1,4 @@
+using REHozy.Decoration;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -69,6 +70,12 @@ namespace REHozy.CarryableTools
         private void Update()
         {
             RefreshToolBinding();
+
+            if (DecorationCarrySession.IsCarrying)
+            {
+                ClearReturnHoldProgress();
+                return;
+            }
 
             if (_attack == null && !useMouseButtonFallback)
             {
@@ -191,6 +198,11 @@ namespace REHozy.CarryableTools
 
         private bool TryPickUpToolUnderCursor()
         {
+            if (DecorationCarrySession.IsCarrying)
+            {
+                return false;
+            }
+
             if (!TryRaycastPickableToolOnGround(out var pickable, out _))
             {
                 return false;

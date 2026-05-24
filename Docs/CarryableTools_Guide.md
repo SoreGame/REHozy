@@ -10,6 +10,7 @@
 | Логика инструмента | `*ToolActions.cs` на том же GO, что `CarryableToolCore` | Реализует [`ICarryableToolActions`](../Assets/REHozy/Scripts/CarryableTools/ICarryableToolActions.cs) |
 | Объекты мира | Свой namespace, напр. `REHozy.Harpoon` | Груз, зоны (мусор), физика после сброса |
 | Эталон | [`HarpoonToolActions`](../Assets/REHozy/Scripts/Harpoon/HarpoonToolActions.cs), [`HarpoonMountableItem`](../Assets/REHozy/Scripts/Harpoon/HarpoonMountableItem.cs) | Импал + сброс + вода + мусор |
+| Декор из коробки | [`Decoration_Guide.md`](Decoration_Guide.md) | Отдельно от инструментов: коробка в Home, prefab + count, без hold-return |
 
 ---
 
