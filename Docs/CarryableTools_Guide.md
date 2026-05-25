@@ -234,7 +234,7 @@ PlayerToolModeState.Active = PlayerToolMode.Brush;
 3. На патчах грязи (опционально): [`DirtPatchQuestLink`](../Assets/REHozy/Scripts/Dirt/DirtPatchQuestLink.cs) с тем же `QuestSO`.
 4. Старт квеста через `QuestBus.OnStart` / `TestQuestActivator`.
 
-Прогресс растёт по мере уменьшения deform map; при остатке грязи &lt; **5%** (настраивается) квест добивается до Goal, грязь полностью очищается и скрывается.
+Прогресс — **сумма очков** по патчам (без нормализации): `Weight × доля очистки`. Квест **завершается при 100** (Goal). Если сумма весов на карте **> 100**, до финиша нужно убрать не всё — достаточно набрать 100 очков. Порог **Complete When Remaining Below** — запас по deform map. После финиша все патчи грязи **схлопываются в scale 0** (`QuestWorldScaleTransition`, длительность на `Dirt Quest Tracker` → **Dirt Hide Duration**).
 
 ---
 

@@ -83,6 +83,7 @@ public class QuestPresenter : MonoBehaviour
             FinishQuest(id);
             return;
         }
+
         QuestBus.GetInstance().OnUpdateData?.Invoke();
     }
 

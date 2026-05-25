@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace REHozy.Dirt
 {
@@ -10,20 +11,23 @@ namespace REHozy.Dirt
     {
         [Header("Quest")]
         [SerializeField] private QuestSO quest;
-        [Tooltip("When remaining dirt is below this fraction (0.05 = 5%), quest completes and dirt is cleared.")]
-        [SerializeField] [Range(0.01f, 0.25f)] private float completeWhenRemainingBelow = 0.05f;
+        [Tooltip("When a patch has at most this much dirt left (0.05 = 5%), it counts as fully cleared for quest progress.")]
+        [SerializeField] [Range(0f, 0.25f)] private float completeWhenRemainingBelow = 0.05f;
+
+        [Header("Complete — hide dirt")]
+        [SerializeField] private float dirtHideDuration = 0.35f;
 
         [Header("Patches")]
         [SerializeField] private bool autoDiscoverPatches = true;
         [SerializeField] private DirtDeformPatch[] patches;
 
-        [Tooltip("Optional per-patch scale overrides (0–1). Lower = less mass counts toward the quest, progress reaches 100% sooner.")]
-        [SerializeField] private PatchMassScaleEntry[] patchMassScales;
+        [Tooltip("Per-patch quest points when fully cleared (summed directly). Quest completes when total reaches Quest Goal (e.g. 100).")]
+        [FormerlySerializedAs("patchMassScales")]
+        [SerializeField] private PatchWeightEntry[] patchWeights;
 
         private readonly List<DirtDeformPatch> _trackedPatches = new();
-        private readonly Dictionary<DirtDeformPatch, float> _patchMassScaleByPatch = new();
+        private readonly Dictionary<DirtDeformPatch, float> _patchWeightByPatch = new();
         private readonly Dictionary<DirtDeformPatch, float> _patchBaselines = new();
-        private float _initialMass;
         private int _lastSentProgress;
         private bool _clearedAfterComplete;
         private bool _wasQuestActive;
@@ -76,12 +80,12 @@ namespace REHozy.Dirt
 
             _wasQuestActive = questActive;
 
-            if (questActive && _initialMass <= 0f)
+            if (questActive && _patchBaselines.Count == 0)
             {
                 BeginTracking();
             }
 
-            if (_progressDirty && questActive && !_clearedAfterComplete && _initialMass > 0f)
+            if (_progressDirty && questActive && !_clearedAfterComplete && _patchBaselines.Count > 0)
             {
                 _progressDirty = false;
                 ReportProgress();
@@ -110,7 +114,7 @@ namespace REHozy.Dirt
                 RefreshPatchList();
             }
 
-            if (_initialMass <= 0f)
+            if (_patchBaselines.Count == 0)
             {
                 BeginTracking();
             }
@@ -132,7 +136,6 @@ namespace REHozy.Dirt
             }
 
             RefreshPatchList();
-            _initialMass = 0f;
             _lastSentProgress = 0;
             _patchBaselines.Clear();
 
@@ -149,7 +152,7 @@ namespace REHozy.Dirt
                     continue;
                 }
 
-                if (GetPatchMassScale(patch) <= 0f)
+                if (GetPatchWeight(patch) <= 0f)
                 {
                     continue;
                 }
@@ -161,7 +164,6 @@ namespace REHozy.Dirt
                 }
 
                 _patchBaselines[patch] = baseline;
-                _initialMass += GetCountedQuestMass(patch, baseline);
             }
         }
 
@@ -182,12 +184,12 @@ namespace REHozy.Dirt
                 RefreshPatchList();
             }
 
-            if (_initialMass <= 0f)
+            if (_patchBaselines.Count == 0)
             {
                 BeginTracking();
             }
 
-            if (_initialMass <= 0f)
+            if (_patchBaselines.Count == 0)
             {
                 return;
             }
@@ -197,30 +199,12 @@ namespace REHozy.Dirt
 
         private void ReportProgress()
         {
-            if (_initialMass <= 0f || quest.Goal <= 0)
+            if (_patchBaselines.Count == 0 || quest.Goal <= 0)
             {
                 return;
             }
 
-            var currentMass = 0f;
-            foreach (var patch in _trackedPatches)
-            {
-                if (patch == null || !patch.IsPlayModeReady)
-                {
-                    continue;
-                }
-
-                if (GetPatchMassScale(patch) <= 0f)
-                {
-                    continue;
-                }
-
-                currentMass += GetCountedQuestMass(patch, patch.GetQuestMass());
-            }
-
-            var remainingRatio = Mathf.Clamp01(currentMass / _initialMass);
-            var cleaned01 = 1f - remainingRatio;
-            var targetProgress = Mathf.Clamp(Mathf.RoundToInt(cleaned01 * quest.Goal), 0, quest.Goal);
+            var targetProgress = Mathf.Min(quest.Goal, Mathf.RoundToInt(ComputeEarnedPoints()));
             var delta = targetProgress - _lastSentProgress;
 
             if (delta > 0)
@@ -229,10 +213,57 @@ namespace REHozy.Dirt
                 _lastSentProgress += delta;
             }
 
-            if (remainingRatio <= completeWhenRemainingBelow || _lastSentProgress >= quest.Goal)
+            if (_lastSentProgress >= quest.Goal)
             {
                 ForceCompleteAndClear();
             }
+        }
+
+        /// <summary>
+        /// Raw quest points: sum of (patch weight × how much of that patch is cleared).
+        /// </summary>
+        private float ComputeEarnedPoints()
+        {
+            var earned = 0f;
+
+            foreach (var entry in _patchBaselines)
+            {
+                var patch = entry.Key;
+                var baseline = entry.Value;
+                var weight = GetPatchWeight(patch);
+                if (weight <= 0f)
+                {
+                    continue;
+                }
+
+                earned += weight * GetPatchCleaned01(patch, baseline);
+            }
+
+            return earned;
+        }
+
+        /// <summary>
+        /// 1 = patch fully cleared for quest (removed, disabled, or dirt below reserve threshold).
+        /// </summary>
+        private float GetPatchCleaned01(DirtDeformPatch patch, float baseline)
+        {
+            if (patch == null || !patch.isActiveAndEnabled || !patch.IsPlayModeReady)
+            {
+                return 1f;
+            }
+
+            if (baseline <= 0f)
+            {
+                return 1f;
+            }
+
+            var remainingRatio = Mathf.Clamp01(patch.GetQuestMass() / baseline);
+            if (remainingRatio <= completeWhenRemainingBelow)
+            {
+                return 1f;
+            }
+
+            return 1f - remainingRatio;
         }
 
         private void ForceCompleteAndClear()
@@ -249,12 +280,57 @@ namespace REHozy.Dirt
                 _lastSentProgress = quest.Goal;
             }
 
-            foreach (var patch in _trackedPatches)
-            {
-                patch?.ClearAllDirt();
-            }
+            HideAllDirtMeshesAfterQuest();
 
             _clearedAfterComplete = true;
+        }
+
+        private void HideAllDirtMeshesAfterQuest()
+        {
+            var hidden = new HashSet<DirtDeformPatch>();
+
+            foreach (var patch in _trackedPatches)
+            {
+                TryHideDirtPatch(patch, hidden);
+            }
+
+            foreach (var entry in _patchBaselines)
+            {
+                TryHideDirtPatch(entry.Key, hidden);
+            }
+
+            if (!autoDiscoverPatches)
+            {
+                return;
+            }
+
+            var allPatches = FindObjectsByType<DirtDeformPatch>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            foreach (var patch in allPatches)
+            {
+                if (patch == null || hidden.Contains(patch))
+                {
+                    continue;
+                }
+
+                var link = patch.GetComponent<DirtPatchQuestLink>();
+                if (link != null && link.Quest != null && link.Quest.QuestId != quest.QuestId)
+                {
+                    continue;
+                }
+
+                TryHideDirtPatch(patch, hidden);
+            }
+        }
+
+        private void TryHideDirtPatch(DirtDeformPatch patch, HashSet<DirtDeformPatch> hidden)
+        {
+            if (patch == null || hidden.Contains(patch))
+            {
+                return;
+            }
+
+            hidden.Add(patch);
+            patch.PlayQuestCompleteHide(dirtHideDuration);
         }
 
         private bool IsQuestActive()
@@ -277,11 +353,11 @@ namespace REHozy.Dirt
             return _cachedPresenter.Model.GetActiveQuest(quest.QuestId) != null;
         }
 
-        private float GetPatchMassScale(DirtDeformPatch patch)
+        private float GetPatchWeight(DirtDeformPatch patch)
         {
-            if (patch != null && _patchMassScaleByPatch.TryGetValue(patch, out var scale))
+            if (patch != null && _patchWeightByPatch.TryGetValue(patch, out var weight))
             {
-                return scale;
+                return weight;
             }
 
             if (patch == null)
@@ -290,58 +366,32 @@ namespace REHozy.Dirt
             }
 
             var link = patch.GetComponent<DirtPatchQuestLink>();
-            return link != null ? link.GetQuestMassScale() : patch.QuestMassScale;
+            return link != null ? link.GetQuestWeight() : patch.QuestWeight;
         }
 
-        /// <summary>
-        /// Mass that still blocks quest completion. With scale &lt; 1, the bottom (1-scale) of baseline is ignored
-        /// (buried / invisible dirt), so progress moves faster toward 100%.
-        /// </summary>
-        private float GetCountedQuestMass(DirtDeformPatch patch, float rawMass)
+        private void RebuildPatchWeightOverrides()
         {
-            var scale = Mathf.Clamp01(GetPatchMassScale(patch));
-            if (scale <= 0f)
-            {
-                return 0f;
-            }
+            _patchWeightByPatch.Clear();
 
-            if (scale >= 1f)
-            {
-                return rawMass;
-            }
-
-            if (!_patchBaselines.TryGetValue(patch, out var baseline) || baseline <= 0f)
-            {
-                return rawMass * scale;
-            }
-
-            var exemptMass = baseline * (1f - scale);
-            return Mathf.Max(0f, rawMass - exemptMass);
-        }
-
-        private void RebuildPatchMassScaleOverrides()
-        {
-            _patchMassScaleByPatch.Clear();
-
-            if (patchMassScales == null)
+            if (patchWeights == null)
             {
                 return;
             }
 
-            foreach (var entry in patchMassScales)
+            foreach (var entry in patchWeights)
             {
                 if (entry.patch == null)
                 {
                     continue;
                 }
 
-                _patchMassScaleByPatch[entry.patch] = Mathf.Clamp01(entry.massScale);
+                _patchWeightByPatch[entry.patch] = Mathf.Max(0.01f, entry.weight);
             }
         }
 
         private void RefreshPatchList()
         {
-            RebuildPatchMassScaleOverrides();
+            RebuildPatchWeightOverrides();
             _trackedPatches.Clear();
 
             if (patches != null)
@@ -379,10 +429,12 @@ namespace REHozy.Dirt
         }
 
         [System.Serializable]
-        private sealed class PatchMassScaleEntry
+        private sealed class PatchWeightEntry
         {
             public DirtDeformPatch patch;
-            [Range(0f, 1f)] public float massScale = 1f;
+            [FormerlySerializedAs("massScale")]
+            [Tooltip("Quest points added when this patch is fully cleared (partial credit while digging).")]
+            [Min(0.01f)] public float weight = 1f;
         }
     }
 }

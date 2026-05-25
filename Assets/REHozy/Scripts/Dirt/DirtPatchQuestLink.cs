@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace REHozy.Dirt
 {
@@ -9,20 +10,21 @@ namespace REHozy.Dirt
         [SerializeField] private QuestSO quest;
 
         [Header("Quest Progress")]
-        [Tooltip("Overrides Dirt Deform Patch quest mass scale when >= 0 (0–1). Lower = faster quest progress.")]
-        [SerializeField] [Range(-1f, 1f)] private float questMassScaleOverride = -1f;
+        [Tooltip("Overrides quest points for this patch when >= 0 (added to counter when cleared, not normalized).")]
+        [FormerlySerializedAs("questMassScaleOverride")]
+        [SerializeField] private float questWeightOverride = -1f;
 
         public QuestSO Quest => quest;
 
-        public float GetQuestMassScale()
+        public float GetQuestWeight()
         {
-            if (questMassScaleOverride >= 0f)
+            if (questWeightOverride >= 0f)
             {
-                return Mathf.Clamp01(questMassScaleOverride);
+                return Mathf.Max(0.01f, questWeightOverride);
             }
 
             var patch = GetComponent<DirtDeformPatch>();
-            return patch != null ? patch.QuestMassScale : 1f;
+            return patch != null ? patch.QuestWeight : 1f;
         }
     }
 }

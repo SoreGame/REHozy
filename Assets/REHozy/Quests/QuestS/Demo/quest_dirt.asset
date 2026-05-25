@@ -17,7 +17,8 @@ MonoBehaviour:
   QuestDescription: "\u0423\u0431\u0435\u0440\u0438 \u0432\u0441\u044E \u0447\u0435\u0440\u043D\u0443\u044E
     \u0433\u0440\u044F\u0437\u044C"
   GoldReward: 0
-  QuestId: 2
+  QuestId: 1
   NeedReStartEvent: 0
   HasStartAnimation: 1
   HasFinishAnimation: 1
+  AllowProgressOverGoal: 0

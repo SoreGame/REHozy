@@ -26,6 +26,8 @@ public class QuestSO : ScriptableObject
     public bool NeedReStartEvent = false;
     public bool HasStartAnimation = true;
     public bool HasFinishAnimation = true;
+    [Tooltip("Progress can exceed Goal (e.g. 124/100). Quest finishes only via explicit FinishQuest, not when crossing Goal.")]
+    public bool AllowProgressOverGoal;
     
 #if UNITY_EDITOR
     private void OnEnable()

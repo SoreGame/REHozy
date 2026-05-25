@@ -16,6 +16,12 @@ public sealed class QuestWorldScaleTransition : MonoBehaviour
 
     public bool IsPlaying => _routine != null;
 
+    public float Duration
+    {
+        get => duration;
+        set => duration = Mathf.Max(0.01f, value);
+    }
+
     private void Awake()
     {
         _targetScale = transform.localScale;

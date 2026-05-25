@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace REHozy.Dirt
 {
@@ -35,8 +36,12 @@ namespace REHozy.Dirt
         [SerializeField] private float groundOffsetManual;
 
         [Header("Quest")]
-        [Tooltip("Share of this patch's mass that counts for the dirt quest (0–1). Lower = quest reaches 100% sooner when visible dirt is gone.")]
-        [SerializeField] [Range(0f, 1f)] private float questMassScale = 1f;
+        [Tooltip("Quest points when this patch is fully cleared (summed toward Quest Goal, e.g. 100).")]
+        [FormerlySerializedAs("questMassScale")]
+        [SerializeField] [Min(0.01f)] private float questWeight = 1f;
+
+        [Header("Quest complete")]
+        [SerializeField] private float questCompleteHideDuration = 0.35f;
 
         private Texture2D _deformMap;
         private Material _materialInstance;
@@ -59,7 +64,7 @@ namespace REHozy.Dirt
 
         public int Resolution => resolution;
         public bool IsPlayModeReady => Application.isPlaying && _pixelBuffer != null && _pixelBuffer.Length > 0;
-        public float QuestMassScale => Mathf.Clamp01(questMassScale);
+        public float QuestWeight => Mathf.Max(0.01f, questWeight);
         public float BaselineMass => _baselineMass > 0f ? _baselineMass : GetQuestMass();
 
         public void GetWorkPlane(out Vector3 pointOnPlane, out Vector3 normal)
@@ -643,6 +648,23 @@ namespace REHozy.Dirt
 
             var w = Mathf.Clamp(_edgeFalloffWidthForQuest, 0.02f, 0.5f);
             return Mathf.SmoothStep(0f, w, d);
+        }
+
+        public void PlayQuestCompleteHide(float? durationOverride = null)
+        {
+            if (!Application.isPlaying || !isActiveAndEnabled)
+            {
+                return;
+            }
+
+            var transition = GetComponent<QuestWorldScaleTransition>();
+            if (transition == null)
+            {
+                transition = gameObject.AddComponent<QuestWorldScaleTransition>();
+            }
+
+            transition.Duration = durationOverride ?? questCompleteHideDuration;
+            transition.PlayHide();
         }
 
         public void ClearAllDirt()
