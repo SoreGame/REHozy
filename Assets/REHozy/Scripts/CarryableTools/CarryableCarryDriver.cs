@@ -1,3 +1,5 @@
+using System;
+using REHozy.Decoration;
 using UnityEngine;
 
 namespace REHozy.CarryableTools
@@ -12,6 +14,16 @@ namespace REHozy.CarryableTools
         [SerializeField] private float rayStartHeight = 50f;
         [SerializeField] private float maxRayDistance = 200f;
         [SerializeField] private Vector3 tipForwardAxis = Vector3.forward;
+
+        [Header("Water")]
+        [SerializeField] private bool clampTipAboveWater;
+        [SerializeField] private float waterTipClearance = WaterCarryClamp.DefaultTipClearance;
+
+        [Header("Work pose (optional)")]
+        [SerializeField] private bool enableWorkPose;
+        [SerializeField] private float workHeightOffsetDelta = -0.12f;
+        [SerializeField] private float workTurnLerpSpeed = 4f;
+        [SerializeField] private float workMinTurnSpeed = 0.25f;
 
         [Header("Smooth carry — empty")]
         [SerializeField] private float positionSmoothTime = 0.1f;
@@ -35,6 +47,9 @@ namespace REHozy.CarryableTools
         private float _tiltSmoothVelocity;
         private Vector3 _lastTiltAxis = Vector3.right;
         private bool _carryMotionInitialized;
+        private bool _workPoseActive;
+        private Quaternion _workSmoothedRotation;
+        private Vector3 _lastWorkMoveDir = Vector3.forward;
 
         public float HeightOffset
         {
@@ -48,8 +63,17 @@ namespace REHozy.CarryableTools
             set => groundMask = value;
         }
 
+        public bool ClampTipAboveWater => clampTipAboveWater;
+
+        public float WaterTipClearance => waterTipClearance;
+
         public bool TryGetGroundAnchor(out Vector3 groundPoint)
         {
+            if (clampTipAboveWater && TryGetSurfaceAnchorUnderTip(out groundPoint, out _))
+            {
+                return true;
+            }
+
             groundPoint = default;
             if (!TryResolveAim(out var anchor, out _))
             {
@@ -58,6 +82,40 @@ namespace REHozy.CarryableTools
 
             groundPoint = anchor;
             return true;
+        }
+
+        public bool TryGetSurfaceAnchorUnderTip(out Vector3 anchor, out Vector3 surfaceNormal)
+        {
+            anchor = default;
+            surfaceNormal = Vector3.up;
+
+            var core = GetComponent<CarryableToolCore>();
+            var tip = core != null ? core.Tip : null;
+            if (tip == null)
+            {
+                return false;
+            }
+
+            var tipPosition = tip.position;
+            var probeOrigin = new Vector3(tipPosition.x, rayStartHeight, tipPosition.z);
+            var hasGround = TryRaycastGroundBelow(probeOrigin, out var groundHit);
+
+            if (clampTipAboveWater
+                && WaterCarryClamp.ShouldUseWaterSurfaceAt(tipPosition, groundMask, out var waterAnchor))
+            {
+                anchor = waterAnchor;
+                surfaceNormal = Vector3.up;
+                return true;
+            }
+
+            if (hasGround)
+            {
+                anchor = new Vector3(tipPosition.x, groundHit.point.y, tipPosition.z);
+                surfaceNormal = groundHit.normal;
+                return true;
+            }
+
+            return false;
         }
 
         public bool TryGetCarryPose(out Vector3 position, out Quaternion rotation)
@@ -83,6 +141,17 @@ namespace REHozy.CarryableTools
 
         public UnityEngine.Camera ResolveCameraForAim() => ResolveCamera();
 
+        public void SetWorkPoseActive(bool active)
+        {
+            if (!enableWorkPose)
+            {
+                _workPoseActive = false;
+                return;
+            }
+
+            _workPoseActive = active;
+        }
+
         public void ResetCarryMotion(Vector3 worldPosition)
         {
             _smoothedPosition = worldPosition;
@@ -91,11 +160,17 @@ namespace REHozy.CarryableTools
             _currentTilt = 0f;
             _tiltSmoothVelocity = 0f;
             _carryMotionInitialized = true;
+            _workSmoothedRotation = Quaternion.identity;
         }
 
         public bool TryApplySmoothedCarry(Transform root, Transform tipPivot, bool hasCargo)
         {
-            if (!TryGetCarryPose(out var targetPosition, out var baseRotation))
+            if (!TryGetCarryPose(
+                    root,
+                    tipPivot,
+                    out var targetPosition,
+                    out var baseRotation,
+                    out var surfaceNormal))
             {
                 return false;
             }
@@ -116,12 +191,17 @@ namespace REHozy.CarryableTools
                 ref _positionSmoothVelocity,
                 Mathf.Max(posSmooth, 0.01f));
 
-            root.SetPositionAndRotation(_smoothedPosition, baseRotation);
+            if (clampTipAboveWater && tipPivot != null)
+            {
+                _smoothedPosition = WaterCarryClamp.ClampRootSoTipAboveWater(
+                    root, tipPivot, _smoothedPosition, baseRotation, waterTipClearance, groundMask);
+            }
 
             if (tipPivot == null)
             {
                 _currentTilt = Mathf.SmoothDamp(_currentTilt, 0f, ref _tiltSmoothVelocity, tiltSmooth);
                 _lastSmoothedPosition = _smoothedPosition;
+                root.SetPositionAndRotation(_smoothedPosition, baseRotation);
                 return true;
             }
 
@@ -130,6 +210,15 @@ namespace REHozy.CarryableTools
             _lastSmoothedPosition = _smoothedPosition;
 
             var horizontalVelocity = new Vector3(moveVelocity.x, 0f, moveVelocity.z);
+
+            var finalRotation = baseRotation;
+            if (_workPoseActive)
+            {
+                finalRotation = ComputeWorkRotation(root.rotation, horizontalVelocity, surfaceNormal, deltaTime);
+            }
+
+            root.SetPositionAndRotation(_smoothedPosition, finalRotation);
+
             var targetTilt = 0f;
 
             if (horizontalVelocity.sqrMagnitude >= minTiltSpeed * minTiltSpeed)
@@ -158,7 +247,103 @@ namespace REHozy.CarryableTools
                 root.RotateAround(tipPivot.position, _lastTiltAxis, _currentTilt);
             }
 
+            if (clampTipAboveWater && tipPivot != null)
+            {
+                root.position = WaterCarryClamp.ClampRootSoTipAboveWater(
+                    root, tipPivot, root.position, root.rotation, waterTipClearance, groundMask);
+            }
+
             return true;
+        }
+
+        private bool TryGetCarryPose(
+            Transform root,
+            Transform tipPivot,
+            out Vector3 position,
+            out Quaternion rotation,
+            out Vector3 surfaceNormal)
+        {
+            position = default;
+            rotation = default;
+            surfaceNormal = Vector3.up;
+
+            if (!TryResolveAim(out var anchor, out surfaceNormal))
+            {
+                return false;
+            }
+
+            var height = heightOffset;
+            if (_workPoseActive)
+            {
+                height += workHeightOffsetDelta;
+            }
+
+            position = anchor + surfaceNormal * height;
+
+            // Prefer the actual "tip direction" (root -> tip) so swapped meshes with different FBX axes
+            // still orient correctly as long as Tip is placed at the working end.
+            var tipDir = Vector3.zero;
+            if (root != null && tipPivot != null)
+            {
+                tipDir = tipPivot.position - root.position;
+            }
+
+            if (tipDir.sqrMagnitude < 0.0001f)
+            {
+                tipDir = transform.TransformDirection(tipForwardAxis.normalized);
+            }
+
+            if (tipDir.sqrMagnitude < 0.0001f)
+            {
+                tipDir = transform.forward;
+            }
+
+            rotation = Quaternion.FromToRotation(tipDir, -surfaceNormal) * transform.rotation;
+
+            if (clampTipAboveWater)
+            {
+                position = WaterCarryClamp.ClampRootSoTipAboveWater(
+                    root, tipPivot, position, rotation, waterTipClearance, groundMask);
+            }
+
+            return true;
+        }
+
+        private Quaternion ComputeWorkRotation(
+            Quaternion currentRotation,
+            Vector3 horizontalVelocity,
+            Vector3 surfaceNormal,
+            float deltaTime)
+        {
+            var desiredMoveDir = _lastWorkMoveDir;
+            if (horizontalVelocity.sqrMagnitude >= workMinTurnSpeed * workMinTurnSpeed)
+            {
+                desiredMoveDir = horizontalVelocity.normalized;
+                _lastWorkMoveDir = desiredMoveDir;
+            }
+
+            var forwardOnPlane = Vector3.ProjectOnPlane(desiredMoveDir, surfaceNormal);
+            if (forwardOnPlane.sqrMagnitude < 0.0001f)
+            {
+                forwardOnPlane = Vector3.ProjectOnPlane(transform.forward, surfaceNormal);
+            }
+
+            if (forwardOnPlane.sqrMagnitude < 0.0001f)
+            {
+                return currentRotation;
+            }
+
+            forwardOnPlane.Normalize();
+            var targetRotation = Quaternion.LookRotation(forwardOnPlane, surfaceNormal);
+
+            if (_workSmoothedRotation == Quaternion.identity)
+            {
+                _workSmoothedRotation = currentRotation;
+            }
+
+            var t = 1f - Mathf.Exp(-workTurnLerpSpeed * deltaTime);
+            _workSmoothedRotation = Quaternion.Slerp(_workSmoothedRotation, targetRotation, t);
+            return _workSmoothedRotation;
         }
 
         private bool TryResolveAim(out Vector3 anchor, out Vector3 surfaceNormal)
@@ -184,23 +369,178 @@ namespace REHozy.CarryableTools
                 return false;
             }
 
-            if (!Physics.Raycast(ray, out var hit, maxRayDistance, groundMask, QueryTriggerInteraction.Ignore))
+            if (!TryRaycastAimSurface(ray, out anchor, out surfaceNormal)
+                && !TrySampleWaterAlongRay(ray, out anchor, out surfaceNormal))
             {
                 return false;
             }
 
-            anchor = hit.point;
-            surfaceNormal = hit.normal;
+            if (TryApplyWaterSurfaceAnchor(ref anchor, ref surfaceNormal))
+            {
+                return true;
+            }
 
             var downOrigin = new Vector3(anchor.x, rayStartHeight, anchor.z);
-            if (Physics.Raycast(downOrigin, Vector3.down, out var downHit, rayStartHeight + 10f, groundMask,
-                    QueryTriggerInteraction.Ignore))
+            if (TryRaycastGroundBelow(downOrigin, out var downHit))
             {
                 anchor = new Vector3(anchor.x, downHit.point.y, anchor.z);
                 surfaceNormal = Vector3.up;
             }
 
             return true;
+        }
+
+        private bool TryApplyWaterSurfaceAnchor(ref Vector3 anchor, ref Vector3 surfaceNormal)
+        {
+            if (!clampTipAboveWater)
+            {
+                return false;
+            }
+
+            var core = GetComponent<CarryableToolCore>();
+            var tip = core != null ? core.Tip : null;
+            if (tip == null || !WaterCarryClamp.IsOverWaterAt(tip.position))
+            {
+                return false;
+            }
+
+            if (!WaterCarryClamp.ShouldUseWaterSurfaceAt(anchor, groundMask, out var waterAnchor))
+            {
+                return false;
+            }
+
+            anchor = waterAnchor;
+            surfaceNormal = Vector3.up;
+            return true;
+        }
+
+        private bool TrySampleWaterAlongRay(Ray ray, out Vector3 anchor, out Vector3 surfaceNormal)
+        {
+            anchor = default;
+            surfaceNormal = Vector3.up;
+
+            if (!clampTipAboveWater)
+            {
+                return false;
+            }
+
+            var core = GetComponent<CarryableToolCore>();
+            var tip = core != null ? core.Tip : null;
+            if (tip == null || !WaterCarryClamp.IsOverWaterAt(tip.position))
+            {
+                return false;
+            }
+
+            const float step = 2f;
+            for (var dist = 0f; dist <= maxRayDistance; dist += step)
+            {
+                var sample = ray.GetPoint(dist);
+                if (!WaterCarryClamp.ShouldUseWaterSurfaceAt(sample, groundMask, out anchor))
+                {
+                    continue;
+                }
+
+                surfaceNormal = Vector3.up;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryRaycastAimSurface(Ray ray, out Vector3 anchor, out Vector3 surfaceNormal)
+        {
+            anchor = default;
+            surfaceNormal = Vector3.up;
+
+            var hits = Physics.RaycastAll(ray, maxRayDistance, groundMask, QueryTriggerInteraction.Ignore);
+            if (hits.Length == 0)
+            {
+                return false;
+            }
+
+            Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            if (clampTipAboveWater)
+            {
+                foreach (var hit in hits)
+                {
+                    if (hit.collider != null && WaterCarryClamp.IsWaterLayer(hit.collider.gameObject.layer))
+                    {
+                        continue;
+                    }
+
+                    anchor = hit.point;
+                    surfaceNormal = hit.normal;
+                    return true;
+                }
+
+                foreach (var hit in hits)
+                {
+                    if (hit.collider == null || !WaterCarryClamp.IsWaterLayer(hit.collider.gameObject.layer))
+                    {
+                        continue;
+                    }
+
+                    if (WaterCarryClamp.ShouldUseWaterSurfaceAt(hit.point, groundMask, out anchor))
+                    {
+                        surfaceNormal = Vector3.up;
+                        return true;
+                    }
+
+                    if (WaterCarryClamp.TryGetGroundSurfaceAnchor(
+                            hit.point, groundMask, out anchor, out surfaceNormal))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            anchor = hits[0].point;
+            surfaceNormal = hits[0].normal;
+            return true;
+        }
+
+        private bool TryRaycastGroundBelow(Vector3 origin, out RaycastHit bestHit)
+        {
+            bestHit = default;
+            var hits = Physics.RaycastAll(
+                origin,
+                Vector3.down,
+                rayStartHeight + 10f,
+                groundMask,
+                QueryTriggerInteraction.Ignore);
+
+            if (hits.Length == 0)
+            {
+                return false;
+            }
+
+            var found = false;
+            var bestY = float.MinValue;
+
+            foreach (var hit in hits)
+            {
+                if (hit.collider == null)
+                {
+                    continue;
+                }
+
+                if (clampTipAboveWater && WaterCarryClamp.IsWaterLayer(hit.collider.gameObject.layer))
+                {
+                    continue;
+                }
+
+                if (hit.point.y > bestY)
+                {
+                    bestY = hit.point.y;
+                    bestHit = hit;
+                    found = true;
+                }
+            }
+
+            return found;
         }
 
         private UnityEngine.Camera ResolveCamera()

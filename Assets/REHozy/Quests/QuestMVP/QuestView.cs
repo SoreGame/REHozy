@@ -1,3 +1,4 @@
+using REHozy;
 using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
@@ -54,6 +55,12 @@ public class QuestView : MonoBehaviour
         StaticInput.GetInstance().UI.VisiblePanel.performed -= SetVisibleList;
         QuestBus.GetInstance().OnHighlighted -= Highlight;
         QuestBus.GetInstance().OnInterrupt -= Interrupt;
+
+        if (listVisible)
+        {
+            listVisible = false;
+            GameplayUiLock.SetActive(false);
+        }
     }
 
     public void ClearRuntimeUi()
@@ -195,10 +202,18 @@ public class QuestView : MonoBehaviour
     private void SetVisibleList(InputAction.CallbackContext a)
     {
         UnhighlAll();
-        listVisible = !listVisible;
+        SetListVisible(!listVisible);
+    }
+
+    private void SetListVisible(bool visible)
+    {
+        listVisible = visible;
         _listPanel.SetActive(listVisible);
+        GameplayUiLock.SetActive(listVisible);
         if (listVisible)
+        {
             QuestBus.GetInstance().OnUpdateData?.Invoke();
+        }
     }
     private GameObject CreateQuestCell(QuestData data)
     {

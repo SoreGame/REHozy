@@ -205,6 +205,12 @@ namespace REHozy.Camera
                 return;
             }
 
+            if (REHozy.GameplayUiLock.IsActive)
+            {
+                _wasOrbitHeld = false;
+                return;
+            }
+
             var carryingDecoration = DecorationCarrySession.IsCarrying;
 
             if (!carryingDecoration && (zoomWithoutButton || IsOrbitHeld()))

@@ -139,6 +139,8 @@ MonoBehaviour:
   rayStartHeight: 50
   maxRayDistance: 200
   tipForwardAxis: {x: 0, y: -1, z: 0}
+  clampTipAboveWater: 1
+  waterTipClearance: 0.08
   positionSmoothTime: 0.1
   maxTiltAngle: 14
   tiltDegreesPerSpeed: 4
@@ -185,6 +187,8 @@ MonoBehaviour:
   mountableMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  impaleStrikeDistance: 0.35
+  impaleStrikeDownFraction: 0.2
   onImpaleStarted:
     m_PersistentCalls:
       m_Calls: []

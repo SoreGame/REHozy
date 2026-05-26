@@ -1,3 +1,4 @@
+using REHozy.Decoration;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,6 +17,12 @@ namespace REHozy.CarryableTools
         [SerializeField] private Vector2 reticleSize = new(24f, 24f);
         [SerializeField] private Color reticleColor = new(1f, 1f, 1f, 0.9f);
         [SerializeField] private bool createUiIfMissing = true;
+
+        [Header("World marker (harpoon)")]
+        [SerializeField] private float worldMarkerScale = 0.12f;
+        [SerializeField] private Color worldMarkerColor = new(1f, 1f, 1f, 0.9f);
+
+        private Transform _worldMarker;
 
         public void BindToTool(CarryableToolCore core)
         {
@@ -53,28 +60,60 @@ namespace REHozy.CarryableTools
 
         private void LateUpdate()
         {
-            if (reticle == null || tool == null || carryDriver == null)
+            if (tool == null || carryDriver == null)
             {
                 return;
             }
 
             if (tool.State != CarryableToolState.Carried)
             {
-                if (reticle.gameObject.activeSelf)
-                {
-                    reticle.gameObject.SetActive(false);
-                }
+                SetScreenReticleVisible(false);
+                SetWorldMarkerVisible(false);
+                return;
+            }
 
+            if (carryDriver.ClampTipAboveWater)
+            {
+                UpdateWorldMarkerUnderTip();
+                return;
+            }
+
+            SetWorldMarkerVisible(false);
+            UpdateScreenReticle();
+        }
+
+        private void UpdateWorldMarkerUnderTip()
+        {
+            SetScreenReticleVisible(false);
+
+            if (!carryDriver.TryGetSurfaceAnchorUnderTip(out var surfacePoint, out _))
+            {
+                SetWorldMarkerVisible(false);
+                return;
+            }
+
+            EnsureWorldMarker();
+            // Guarantee marker never goes below water surface.
+            if (DecorationPlacementUtility.TryGetWaterSurfaceY(surfacePoint, out var waterY))
+            {
+                var clearance = carryDriver != null ? carryDriver.WaterTipClearance : WaterCarryClamp.DefaultTipClearance;
+                surfacePoint.y = Mathf.Max(surfacePoint.y, waterY + clearance);
+            }
+
+            _worldMarker.position = surfacePoint;
+            SetWorldMarkerVisible(true);
+        }
+
+        private void UpdateScreenReticle()
+        {
+            if (reticle == null)
+            {
                 return;
             }
 
             if (!carryDriver.TryGetGroundAnchor(out var groundPoint))
             {
-                if (reticle.gameObject.activeSelf)
-                {
-                    reticle.gameObject.SetActive(false);
-                }
-
+                SetScreenReticleVisible(false);
                 return;
             }
 
@@ -87,14 +126,11 @@ namespace REHozy.CarryableTools
             var screen = cam.WorldToScreenPoint(groundPoint);
             if (screen.z < 0f)
             {
-                reticle.gameObject.SetActive(false);
+                SetScreenReticleVisible(false);
                 return;
             }
 
-            if (!reticle.gameObject.activeSelf)
-            {
-                reticle.gameObject.SetActive(true);
-            }
+            SetScreenReticleVisible(true);
 
             var canvasRect = rootCanvas != null ? rootCanvas.transform as RectTransform : null;
             if (canvasRect == null)
@@ -112,6 +148,61 @@ namespace REHozy.CarryableTools
             {
                 reticle.anchoredPosition = localPoint;
             }
+        }
+
+        private void SetScreenReticleVisible(bool visible)
+        {
+            if (reticle != null && reticle.gameObject.activeSelf != visible)
+            {
+                reticle.gameObject.SetActive(visible);
+            }
+        }
+
+        private void SetWorldMarkerVisible(bool visible)
+        {
+            if (_worldMarker != null && _worldMarker.gameObject.activeSelf != visible)
+            {
+                _worldMarker.gameObject.SetActive(visible);
+            }
+        }
+
+        private void EnsureWorldMarker()
+        {
+            if (_worldMarker != null)
+            {
+                return;
+            }
+
+            var markerGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            markerGo.name = "AimMarker_World";
+            markerGo.transform.SetParent(transform, false);
+            markerGo.transform.localScale = Vector3.one * worldMarkerScale;
+
+            var collider = markerGo.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+
+            var renderer = markerGo.GetComponent<MeshRenderer>();
+            if (renderer != null)
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                var shader = Shader.Find("Universal Render Pipeline/Unlit");
+                if (shader == null)
+                {
+                    shader = Shader.Find("Unlit/Color");
+                }
+
+                if (shader != null)
+                {
+                    renderer.sharedMaterial = new Material(shader) { color = worldMarkerColor };
+                }
+            }
+
+            _worldMarker = markerGo.transform;
+            _worldMarker.gameObject.SetActive(false);
         }
 
         private void EnsureReticleHierarchy()

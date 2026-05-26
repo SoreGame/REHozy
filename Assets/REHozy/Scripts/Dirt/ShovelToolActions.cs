@@ -66,15 +66,19 @@ namespace REHozy.Dirt
         {
             if (tool.State != CarryableToolState.Carried)
             {
+                tool.CarryDriver?.SetWorkPoseActive(false);
                 ReleaseWorkPlane();
                 return;
             }
 
             if (!attackHeld || returnHoldInProgress)
             {
+                tool.CarryDriver?.SetWorkPoseActive(false);
                 ReleaseWorkPlane();
                 return;
             }
+
+            tool.CarryDriver?.SetWorkPoseActive(true);
 
             if (!_planeLockActive)
             {

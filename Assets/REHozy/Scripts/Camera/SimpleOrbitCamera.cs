@@ -60,6 +60,11 @@ namespace REHozy.Camera
                 return;
             }
 
+            if (REHozy.GameplayUiLock.IsActive)
+            {
+                return;
+            }
+
             var rotateHeld = IsMouseButtonHeld(rotateMouseButton);
             var carryingDecoration = DecorationCarrySession.IsCarrying;
 

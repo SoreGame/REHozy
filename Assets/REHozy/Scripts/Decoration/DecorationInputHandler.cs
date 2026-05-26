@@ -41,6 +41,11 @@ namespace REHozy.Decoration
 
         private void Update()
         {
+            if (REHozy.GameplayUiLock.IsActive)
+            {
+                return;
+            }
+
             if (DecorationCarrySession.IsCarrying)
             {
                 UpdateWhileCarrying();
@@ -62,6 +67,11 @@ namespace REHozy.Decoration
 
         private void LateUpdate()
         {
+            if (REHozy.GameplayUiLock.IsActive)
+            {
+                return;
+            }
+
             if (!DecorationCarrySession.IsCarrying)
             {
                 return;

@@ -71,6 +71,12 @@ namespace REHozy.CarryableTools
         {
             RefreshToolBinding();
 
+            if (REHozy.GameplayUiLock.IsActive)
+            {
+                ClearReturnHoldProgress();
+                return;
+            }
+
             if (DecorationCarrySession.IsCarrying)
             {
                 ClearReturnHoldProgress();
