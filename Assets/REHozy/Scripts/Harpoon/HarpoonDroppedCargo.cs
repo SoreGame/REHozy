@@ -1,4 +1,5 @@
 using Bitgem.VFX.StylisedWater;
+using REHozy;
 using UnityEngine;
 
 namespace REHozy.Harpoon
@@ -51,6 +52,11 @@ namespace REHozy.Harpoon
             foreach (var floater in GetComponentsInChildren<WateverVolumeFloater>(true))
             {
                 floater.enabled = false;
+            }
+
+            foreach (var wander in GetComponentsInChildren<FloatingTargetWander>(true))
+            {
+                wander.enabled = false;
             }
         }
 
@@ -230,6 +236,11 @@ namespace REHozy.Harpoon
                 }
 
                 floater.enabled = true;
+            }
+
+            foreach (var wander in GetComponentsInChildren<FloatingTargetWander>(true))
+            {
+                wander.enabled = true;
             }
         }
 

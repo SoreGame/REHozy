@@ -27,6 +27,7 @@ namespace REHozy.CarryableTools
         [SerializeField] private float animationLockDuration = 0.3f;
 
         private Pose _startPose;
+        private Pose _groundRestPose;
         private CarryableToolState _state = CarryableToolState.OnGround;
         private Coroutine _phaseRoutine;
         private float _returnT;
@@ -74,6 +75,7 @@ namespace REHozy.CarryableTools
 
             ResolveHomeZone();
             CacheStartPose();
+            _groundRestPose = _startPose;
             ApplyOnGround();
         }
 
@@ -96,7 +98,8 @@ namespace REHozy.CarryableTools
         }
 
         /// <summary>
-        /// Snaps to home pose and ground state (e.g. before quest hides the tool).
+        /// Snaps to ground and resting pose (e.g. before quest hides the tool).
+        /// When carried, uses the ground point under the tool instead of the pickup pose.
         /// </summary>
         public void SnapToHomeGround()
         {
@@ -106,8 +109,37 @@ namespace REHozy.CarryableTools
                 _phaseRoutine = null;
             }
 
-            transform.SetPositionAndRotation(_startPose.position, _startPose.rotation);
+            if (_state == CarryableToolState.Carried)
+            {
+                if (carryDriver != null && carryDriver.TryGetGroundAnchor(out var anchor))
+                {
+                    transform.SetPositionAndRotation(anchor, transform.rotation);
+                    carryDriver.ResetCarryMotion(anchor);
+                }
+                else
+                {
+                    carryDriver?.ResetCarryMotion(transform.position);
+                }
+            }
+            else
+            {
+                transform.SetPositionAndRotation(_groundRestPose.position, _groundRestPose.rotation);
+            }
+
             ApplyOnGround();
+        }
+
+        /// <summary>
+        /// Re-syncs smoothed carry motion after UI or other interruptions (quest panel, etc.).
+        /// </summary>
+        public void FreezeCarryMotionAtCurrentPose()
+        {
+            if (_state != CarryableToolState.Carried || carryDriver == null)
+            {
+                return;
+            }
+
+            carryDriver.ResetCarryMotion(transform.position);
         }
 
         public bool CanBePickedUp()
@@ -225,6 +257,7 @@ namespace REHozy.CarryableTools
         private void FinishReturnHome()
         {
             transform.SetPositionAndRotation(_startPose.position, _startPose.rotation);
+            _groundRestPose = _startPose;
             ApplyOnGround();
         }
 

@@ -1,4 +1,6 @@
+using REHozy;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace REHozy.CarryableTools
@@ -8,6 +10,11 @@ namespace REHozy.CarryableTools
         public static bool TryGetRay(UnityEngine.Camera camera, out Ray ray)
         {
             ray = default;
+
+            if (BlocksWorldAimRay())
+            {
+                return false;
+            }
 
             if (camera == null || !camera.isActiveAndEnabled)
             {
@@ -65,6 +72,17 @@ namespace REHozy.CarryableTools
                 && float.IsFinite(screenPos.y)
                 && screenPos.x >= -100000f
                 && screenPos.y >= -100000f;
+        }
+
+        private static bool BlocksWorldAimRay()
+        {
+            if (GameplayUiLock.IsActive)
+            {
+                return true;
+            }
+
+            var eventSystem = EventSystem.current;
+            return eventSystem != null && eventSystem.IsPointerOverGameObject();
         }
     }
 }

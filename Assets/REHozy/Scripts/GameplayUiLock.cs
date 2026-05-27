@@ -31,6 +31,7 @@ namespace REHozy
             if (_depth == 0)
             {
                 CarryableGameplayLock.SetCanPickup(false);
+                FreezeCarriedToolsMotion();
             }
 
             _depth++;
@@ -51,13 +52,27 @@ namespace REHozy
                 return;
             }
 
+            FreezeCarriedToolsMotion();
             DecorationGameplayLock.RestoreToolPickupIfAllowed();
             ApplyGameplayCursor();
         }
 
+        private static void FreezeCarriedToolsMotion()
+        {
+            var cores = Object.FindObjectsByType<CarryableToolCore>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
+
+            foreach (var core in cores)
+            {
+                core.FreezeCarryMotionAtCurrentPose();
+            }
+        }
+
         /// <summary>
-        /// Matches tool/decoration carry rules. Uses Locked+hidden so the OS cursor
-        /// disappears immediately (visible=false with lock None can stick until the next click).
+        /// Matches tool/decoration carry rules.
+        /// Note: tools use mouse screen position for aiming; CursorLockMode.Locked can freeze Mouse.position
+        /// in the new Input System, causing carried tools to aim at screen center after UI closes.
         /// </summary>
         public static void ApplyGameplayCursor()
         {
@@ -70,7 +85,7 @@ namespace REHozy
 
             if (ShouldHideGameplayCursor())
             {
-                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = false;
             }
             else
