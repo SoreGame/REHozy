@@ -14,6 +14,7 @@ namespace REHozy.Torch
         [SerializeField] private Light fireLight;
         [SerializeField] private Transform ignitePoint;
         [SerializeField] private float igniteRadius = 2f;
+        [SerializeField] private float igniteSpeedMultiplier = 4f;
         [SerializeField] private float vfxSearchRadius = 4f;
 
         private void Reset()
@@ -89,7 +90,7 @@ namespace REHozy.Torch
                 return;
             }
 
-            source.Configure(ignitePoint, igniteRadius);
+            source.Configure(ignitePoint, igniteRadius, igniteSpeedMultiplier);
 
             var trigger = GetComponent<SphereCollider>();
             if (trigger == null)

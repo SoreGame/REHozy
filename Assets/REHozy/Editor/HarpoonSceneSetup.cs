@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using REHozy.CarryableTools;
 using REHozy.Harpoon;
+using REHozy.Torch;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -108,6 +109,7 @@ namespace REHozy.EditorTools
             var input = go.AddComponent<CarryableToolInputHandler>();
             var reticle = go.AddComponent<CarryableAimReticleUI>();
             var returnHoldUi = go.AddComponent<CarryableReturnHoldUI>();
+            go.AddComponent<TorchFuelProgressUI>();
 
             var attackRef = AssetDatabase.LoadAssetAtPath<InputActionReference>(
                 "Assets/REHozy/Settings/InputAttack.asset");

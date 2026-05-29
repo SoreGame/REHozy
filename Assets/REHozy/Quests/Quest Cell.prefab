@@ -34,8 +34,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -105.02959}
-  m_SizeDelta: {x: -40.000008, y: 70}
+  m_AnchoredPosition: {x: 0, y: -91.6}
+  m_SizeDelta: {x: -40, y: 54.1528}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2939019664192965205
 CanvasRenderer:
@@ -68,8 +68,8 @@ MonoBehaviour:
   m_text: "\u0423\u0431\u043E\u0440\u043A\u0430! \u0423\u0431\u043E\u0440\u043A\u0430!
     \u0423\u0431\u043E\u0440\u043A\u0430! \u0423\u0431\u043E\u0440\u043A\u0430! \u0423\u0431\u043E\u0440\u043A\u0430!"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 859c7da1d4ae0a94cb4ff6cba7183a2e, type: 2}
+  m_sharedMaterial: {fileID: -4819422772099876930, guid: 859c7da1d4ae0a94cb4ff6cba7183a2e, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -172,7 +172,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -30}
+  m_AnchoredPosition: {x: 0, y: -38}
   m_SizeDelta: {x: 0, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6762557677298933692
@@ -205,8 +205,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u0423\u0431\u043E\u0440\u043A\u0430!"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 859c7da1d4ae0a94cb4ff6cba7183a2e, type: 2}
+  m_sharedMaterial: {fileID: -4819422772099876930, guid: 859c7da1d4ae0a94cb4ff6cba7183a2e, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -314,8 +314,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -21.753149, y: -412.92514}
-  m_SizeDelta: {x: 1000, y: 270}
+  m_AnchoredPosition: {x: -254.04904, y: -412.92514}
+  m_SizeDelta: {x: 500, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4750097638852430909
 CanvasRenderer:
@@ -337,7 +337,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 2100000, guid: f6d46f1e916b3486c90a448a441fac6a, type: 2}
+  m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -345,8 +345,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: 21300000, guid: a4da4766c085a764c9a582eaf4637627, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -461,8 +461,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -204.02957}
-  m_SizeDelta: {x: -40, y: 70}
+  m_AnchoredPosition: {x: 0, y: -160.8552}
+  m_SizeDelta: {x: -40, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6010650617307705786
 CanvasRenderer:
@@ -495,8 +495,8 @@ MonoBehaviour:
   m_text: "\u0423\u0431\u043E\u0440\u043A\u0430! \u0423\u0431\u043E\u0440\u043A\u0430!
     \u0423\u0431\u043E\u0440\u043A\u0430! \u0423\u0431\u043E\u0440\u043A\u0430! \u0423\u0431\u043E\u0440\u043A\u0430!"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 859c7da1d4ae0a94cb4ff6cba7183a2e, type: 2}
+  m_sharedMaterial: {fileID: -4819422772099876930, guid: 859c7da1d4ae0a94cb4ff6cba7183a2e, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

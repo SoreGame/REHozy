@@ -1,4 +1,5 @@
 using REHozy.Decoration;
+using REHozy.Torch;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -174,6 +175,41 @@ namespace REHozy.CarryableTools
 
             var returnHoldUi = GetComponent<CarryableReturnHoldUI>();
             returnHoldUi?.BindToTool(core);
+
+            EnsureTorchFuelUi(core);
+            EnsureTorchMapOutline(core);
+        }
+
+        private void EnsureTorchMapOutline(CarryableToolCore core)
+        {
+            if (core == null || core.ToolModeId != PlayerToolMode.Torch)
+            {
+                return;
+            }
+
+            var outlineController = GetComponent<TorchMapOutlineController>();
+            if (outlineController == null)
+            {
+                outlineController = gameObject.AddComponent<TorchMapOutlineController>();
+            }
+
+            outlineController.BindToTool(core);
+        }
+
+        private void EnsureTorchFuelUi(CarryableToolCore core)
+        {
+            if (core == null || core.ToolModeId != PlayerToolMode.Torch)
+            {
+                return;
+            }
+
+            var torchFuelUi = GetComponent<TorchFuelProgressUI>();
+            if (torchFuelUi == null)
+            {
+                torchFuelUi = gameObject.AddComponent<TorchFuelProgressUI>();
+            }
+
+            torchFuelUi.BindToTool(core);
         }
 
         private void ClearReturnHoldProgress()

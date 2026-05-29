@@ -6,24 +6,43 @@ namespace REHozy.Torch
     [AddComponentMenu("REHozy/Torch/Torch Aim Pivot")]
     public sealed class TorchAimPivot : MonoBehaviour
     {
+        [SerializeField] private Transform aimVisual;
         [SerializeField] private Transform tip;
         [SerializeField] private Vector3 aimRotationAxis = Vector3.right;
         [SerializeField] private float aimedDownAngle = 60f;
+        [SerializeField] private float aimTiltSign = -1f;
         [SerializeField] private float aimDownThreshold = 0.92f;
         [SerializeField] private float aimLowerDuration = 0.9f;
         [SerializeField] private float aimRaiseDuration = 0.35f;
 
-        private Quaternion _baseLocalRotation;
+        private Quaternion _aimVisualBaseLocalRotation;
         private float _aimTilt01;
 
         public float AimTilt01 => _aimTilt01;
         public bool IsAimedDownEnough => _aimTilt01 >= aimDownThreshold;
         public TorchAimMode AimMode => IsAimedDownEnough ? TorchAimMode.AimedDown : TorchAimMode.Upright;
-        public Transform Tip => tip != null ? tip : transform;
+        public Transform Tip => tip != null ? tip : aimVisual != null ? aimVisual : transform;
+
+        private void Reset()
+        {
+            aimVisual = transform.Find("AimGroup") ?? transform.Find("Mesh");
+            tip = transform.Find("AimGroup/Tip") ?? transform.Find("Mesh/Tip") ?? transform.Find("Tip");
+            CacheBaseRotation();
+        }
 
         private void Awake()
         {
-            _baseLocalRotation = transform.localRotation;
+            if (aimVisual == null)
+            {
+                aimVisual = transform.Find("AimGroup") ?? transform.Find("Mesh");
+            }
+
+            if (tip == null)
+            {
+                tip = transform.Find("AimGroup/Tip") ?? transform.Find("Mesh/Tip") ?? transform.Find("Tip");
+            }
+
+            CacheBaseRotation();
         }
 
         public void UpdateAimTilt(bool wantLower, float deltaTime)
@@ -37,6 +56,7 @@ namespace REHozy.Torch
         public void ResetAimTilt()
         {
             _aimTilt01 = 0f;
+            ApplyVisualRotation();
         }
 
         private void LateUpdate()
@@ -44,27 +64,24 @@ namespace REHozy.Torch
             ApplyVisualRotation();
         }
 
+        private void CacheBaseRotation()
+        {
+            if (aimVisual != null)
+            {
+                _aimVisualBaseLocalRotation = aimVisual.localRotation;
+            }
+        }
+
         private void ApplyVisualRotation()
         {
-            if (transform.parent == null)
-            {
-                return;
-            }
-
-            var up = transform.up;
-            if (up.sqrMagnitude > 0.0001f)
-            {
-                transform.rotation = Quaternion.FromToRotation(up, Vector3.up) * transform.rotation;
-            }
-
-            if (_aimTilt01 <= 0.0001f)
+            if (aimVisual == null)
             {
                 return;
             }
 
             var axis = aimRotationAxis.sqrMagnitude > 0.0001f ? aimRotationAxis.normalized : Vector3.right;
-            var angle = aimedDownAngle * _aimTilt01;
-            transform.localRotation = Quaternion.AngleAxis(angle, axis) * transform.localRotation;
+            var angle = aimTiltSign * aimedDownAngle * _aimTilt01;
+            aimVisual.localRotation = _aimVisualBaseLocalRotation * Quaternion.AngleAxis(angle, axis);
         }
     }
 }

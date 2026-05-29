@@ -163,21 +163,26 @@ Shader "Hidden/REHozy/ColorSpread"
                 return 1.0 - smoothstep(effectRadius - softness, effectRadius, dist);
             }
 
-            float ComputeWaveEdge(float dist, float effectRadius, float spread)
+            float ComputeWaveEdge(float dist, float effectRadius, float spread, bool useDistanceRing)
             {
                 if (_WaveEdgeIntensity <= 0.0)
                     return 0.0;
 
-                float band = max(_WaveEdgeWidth, 0.25);
-                float ringDist = smoothstep(effectRadius - band, effectRadius, dist)
-                    * (1.0 - smoothstep(effectRadius, effectRadius + band * 0.35, dist));
                 float ringSpread = smoothstep(0.4, 0.5, spread) * (1.0 - smoothstep(0.5, 0.6, spread));
+                float ringDist = 0.0;
+                if (useDistanceRing)
+                {
+                    float band = max(_WaveEdgeWidth, 0.25);
+                    ringDist = smoothstep(effectRadius - band, effectRadius, dist)
+                        * (1.0 - smoothstep(effectRadius, effectRadius + band * 0.35, dist));
+                }
+
                 return saturate(max(ringDist, ringSpread)) * _WaveEdgeIntensity;
             }
 
-            float3 ApplyWaveEdge(float3 color, float dist, float effectRadius, float spread)
+            float3 ApplyWaveEdge(float3 color, float dist, float effectRadius, float spread, bool useDistanceRing)
             {
-                float edge = ComputeWaveEdge(dist, effectRadius, spread);
+                float edge = ComputeWaveEdge(dist, effectRadius, spread, useDistanceRing);
                 return lerp(color, _WaveEdgeColor.rgb, edge * _WaveEdgeColor.a);
             }
 
@@ -196,25 +201,28 @@ Shader "Hidden/REHozy/ColorSpread"
                 bool isSky = IsSkyDepth(deviceDepth);
                 bool fullColorWave = _Step >= 3.5;
 
-                float dist = distance(worldPos.xz, _Center.xz);
-                float effectRadius = ComputeEffectRadius(worldPos.xz);
+                float3 prevColor = ApplyPaletteMask(fullColor.rgb, _PreviousMask);
 
-                float spread = 0.0;
-                if (fullColorWave || !isSky)
-                    spread = ComputeSpreadFromDist(dist, effectRadius);
-
-                if (isSky && fullColorWave)
+                // Sky depth gives meaningless XZ distance; distance-based spread/edge leaves a stuck ring.
+                if (isSky)
                 {
+                    if (!fullColorWave)
+                        return float4(prevColor, fullColor.a);
+
                     float globalSpread = saturate(((_Time.y - _StartTime) * _GrowthSpeed) / max(_MaxRadius, 0.001));
-                    spread = max(spread, globalSpread);
+                    float3 skyResult = lerp(prevColor, fullColor.rgb, globalSpread);
+                    skyResult = ApplyWaveEdge(skyResult, 0.0, 0.0, globalSpread, false);
+                    return float4(skyResult, fullColor.a);
                 }
 
-                float3 prevColor = ApplyPaletteMask(fullColor.rgb, _PreviousMask);
+                float dist = distance(worldPos.xz, _Center.xz);
+                float effectRadius = ComputeEffectRadius(worldPos.xz);
+                float spread = ComputeSpreadFromDist(dist, effectRadius);
 
                 if (fullColorWave)
                 {
                     float3 result = lerp(prevColor, fullColor.rgb, spread);
-                    result = ApplyWaveEdge(result, dist, effectRadius, spread);
+                    result = ApplyWaveEdge(result, dist, effectRadius, spread, true);
                     return float4(result, fullColor.a);
                 }
 
@@ -222,7 +230,7 @@ Shader "Hidden/REHozy/ColorSpread"
                 float addBand = HueMaskFromPaletteBits(hue, _WaveAddMask);
                 float3 withNewBand = lerp(prevColor, fullColor.rgb, addBand);
                 float3 result = lerp(prevColor, withNewBand, spread);
-                result = ApplyWaveEdge(result, dist, effectRadius, spread);
+                result = ApplyWaveEdge(result, dist, effectRadius, spread, true);
                 return float4(result, fullColor.a);
             }
             ENDHLSL

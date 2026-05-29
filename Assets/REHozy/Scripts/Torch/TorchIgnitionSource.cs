@@ -12,16 +12,19 @@ namespace REHozy.Torch
         [SerializeField] private Transform ignitePoint;
         [SerializeField] private float igniteRadius = 2f;
         [SerializeField] private float maxVerticalReach = 2.5f;
+        [SerializeField] private float igniteSpeedMultiplier = 1f;
 
         public Transform IgnitePoint => ignitePoint != null ? ignitePoint : transform;
         public float IgniteRadius => igniteRadius;
+        public float IgniteSpeedMultiplier => Mathf.Max(igniteSpeedMultiplier, 0.01f);
 
         public static IReadOnlyList<TorchIgnitionSource> ActiveInScene => ActiveSources;
 
-        public void Configure(Transform point, float radius)
+        public void Configure(Transform point, float radius, float speedMultiplier = 1f)
         {
             ignitePoint = point;
             igniteRadius = radius;
+            igniteSpeedMultiplier = speedMultiplier;
         }
 
         public bool ContainsPoint(Vector3 worldPoint)

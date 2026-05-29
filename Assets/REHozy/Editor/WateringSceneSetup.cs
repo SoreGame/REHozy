@@ -12,6 +12,7 @@ namespace REHozy.EditorTools
     {
         private const string MenuPath = "REHozy/Setup Watering Test Objects";
         private const string WireInputPath = "REHozy/Wire Tool Input To Watering Can";
+        private const string FixPourVisualPath = "REHozy/Fix Watering Can Pour Visual";
         private const string FoliageMaterialPath = "Assets/REHozy/Materials/FoliageReveal_Default.mat";
         private const string GrassBladePath = "Assets/REHozy/Prefabs/Watering/GrassBlade.prefab";
 
@@ -64,6 +65,21 @@ namespace REHozy.EditorTools
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             Debug.Log("Watering test objects created. Use REHozy → Wire Tool Input To Watering Can before play.");
+        }
+
+        [MenuItem(FixPourVisualPath)]
+        public static void FixWateringCanPourVisual()
+        {
+            var can = GameObject.Find("WateringCan");
+            if (can == null)
+            {
+                Debug.LogWarning("WateringCan not found in the open scene.");
+                return;
+            }
+
+            EnsurePourVisualHierarchy(can.transform);
+            EditorSceneManager.MarkSceneDirty(can.scene);
+            Debug.Log("WateringCan pour visual hierarchy updated.");
         }
 
         [MenuItem(WireInputPath)]
@@ -214,20 +230,32 @@ namespace REHozy.EditorTools
 
             pickup.isTrigger = false;
 
-            var tipGo = new GameObject("Tip");
-            tipGo.transform.SetParent(root.transform, false);
-            tipGo.transform.localPosition = new Vector3(0f, 0.15f, 0.35f);
-
             var pivotGo = new GameObject("PourPivot");
             pivotGo.transform.SetParent(root.transform, false);
-            pivotGo.transform.localPosition = Vector3.zero;
-            var aimPivot = pivotGo.AddComponent<WateringCanAimPivot>();
+            pivotGo.transform.localPosition = new Vector3(0f, -0.08f, -0.05f);
+            var aimPivot = pivotGo.GetComponent<WateringCanAimPivot>();
+            if (aimPivot == null)
+            {
+                aimPivot = pivotGo.AddComponent<WateringCanAimPivot>();
+            }
+
+            var pourVisual = EnsurePourVisualHierarchy(root.transform);
+
+            var tipGo = pourVisual.Find("Tip");
+            if (tipGo == null)
+            {
+                tipGo = new GameObject("Tip").transform;
+                tipGo.SetParent(pourVisual, false);
+                tipGo.localPosition = new Vector3(0f, 0.15f, 0.35f);
+            }
+
             var soPivot = new SerializedObject(aimPivot);
-            soPivot.FindProperty("tip").objectReferenceValue = tipGo.transform;
+            soPivot.FindProperty("pourVisual").objectReferenceValue = pourVisual;
+            soPivot.FindProperty("tip").objectReferenceValue = tipGo;
             soPivot.ApplyModifiedPropertiesWithoutUndo();
 
             var spout = new GameObject("WaterParticles");
-            spout.transform.SetParent(tipGo.transform, false);
+            spout.transform.SetParent(tipGo, false);
             spout.transform.localPosition = Vector3.zero;
             var particles = spout.AddComponent<ParticleSystem>();
             ConfigureWaterParticles(particles);
@@ -249,7 +277,7 @@ namespace REHozy.EditorTools
 
             var soCore = new SerializedObject(core);
             soCore.FindProperty("toolModeId").enumValueIndex = (int)PlayerToolMode.Water;
-            soCore.FindProperty("tip").objectReferenceValue = tipGo.transform;
+            soCore.FindProperty("tip").objectReferenceValue = tipGo;
             soCore.FindProperty("carryDriver").objectReferenceValue = carry;
             soCore.FindProperty("pickupCollider").objectReferenceValue = pickup;
             soCore.ApplyModifiedPropertiesWithoutUndo();
@@ -264,6 +292,73 @@ namespace REHozy.EditorTools
             soActions.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
+        }
+
+        private static Transform EnsurePourVisualHierarchy(Transform root)
+        {
+            var pourPivot = root.Find("PourPivot");
+            if (pourPivot == null)
+            {
+                var pivotGo = new GameObject("PourPivot");
+                pourPivot = pivotGo.transform;
+                pourPivot.SetParent(root, false);
+                pourPivot.localPosition = new Vector3(0f, -0.08f, -0.05f);
+                pivotGo.AddComponent<WateringCanAimPivot>();
+            }
+
+            var pourVisual = pourPivot.Find("PourVisual");
+            if (pourVisual == null)
+            {
+                var pourVisualGo = new GameObject("PourVisual");
+                pourVisual = pourVisualGo.transform;
+                pourVisual.SetParent(pourPivot, false);
+                pourVisual.localPosition = Vector3.zero;
+                pourVisual.localRotation = Quaternion.identity;
+            }
+
+            var meshFilter = root.GetComponent<MeshFilter>();
+            var meshRenderer = root.GetComponent<MeshRenderer>();
+            var meshChild = pourVisual.Find("Mesh");
+            if (meshFilter != null && meshFilter.sharedMesh != null && meshChild == null)
+            {
+                var meshGo = new GameObject("Mesh");
+                meshGo.transform.SetParent(pourVisual, false);
+                meshGo.transform.localPosition = Vector3.zero;
+                meshGo.transform.localRotation = Quaternion.identity;
+                meshGo.transform.localScale = Vector3.one;
+                meshGo.AddComponent<MeshFilter>().sharedMesh = meshFilter.sharedMesh;
+
+                if (meshRenderer != null)
+                {
+                    var migratedRenderer = meshGo.AddComponent<MeshRenderer>();
+                    migratedRenderer.sharedMaterials = meshRenderer.sharedMaterials;
+                    Object.DestroyImmediate(meshRenderer);
+                }
+
+                Object.DestroyImmediate(meshFilter);
+            }
+
+            var legacyTip = root.Find("Tip");
+            if (legacyTip != null && legacyTip.parent != pourVisual)
+            {
+                legacyTip.SetParent(pourVisual, true);
+            }
+
+            var aimPivot = pourPivot.GetComponent<WateringCanAimPivot>();
+            if (aimPivot != null)
+            {
+                var soPivot = new SerializedObject(aimPivot);
+                soPivot.FindProperty("pourVisual").objectReferenceValue = pourVisual;
+                var tip = pourVisual.Find("Tip");
+                if (tip != null)
+                {
+                    soPivot.FindProperty("tip").objectReferenceValue = tip;
+                }
+
+                soPivot.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            return pourVisual;
         }
 
         private static void ConfigureWaterParticles(ParticleSystem particles)

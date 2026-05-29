@@ -205,6 +205,16 @@ public class QuestView : MonoBehaviour
         SetListVisible(!listVisible);
     }
 
+    /// <summary>UI close button — must go through here so <see cref="GameplayUiLock"/> is released.</summary>
+    public void CloseQuestList()
+    {
+        if (!listVisible)
+            return;
+
+        UnhighlAll();
+        SetListVisible(false);
+    }
+
     private void SetListVisible(bool visible)
     {
         listVisible = visible;
