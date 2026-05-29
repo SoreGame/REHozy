@@ -4,6 +4,15 @@ using UnityEngine;
 
 namespace REHozy.CarryableTools
 {
+    public enum WorkPoseOrientation
+    {
+        /// <summary>Tool lies on the work plane; forward follows movement (e.g. watering can).</summary>
+        SlideOnSurface = 0,
+
+        /// <summary>Tip stays aimed into the surface; only yaw follows movement (e.g. shovel).</summary>
+        TipDownYaw = 1,
+    }
+
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Carryable Tools/Carryable Carry Driver")]
     public sealed class CarryableCarryDriver : MonoBehaviour
@@ -21,6 +30,7 @@ namespace REHozy.CarryableTools
 
         [Header("Work pose (optional)")]
         [SerializeField] private bool enableWorkPose;
+        [SerializeField] private WorkPoseOrientation workPoseOrientation = WorkPoseOrientation.SlideOnSurface;
         [SerializeField] private float workHeightOffsetDelta = -0.12f;
         [SerializeField] private float workTurnLerpSpeed = 4f;
         [SerializeField] private float workMinTurnSpeed = 0.25f;
@@ -149,6 +159,11 @@ namespace REHozy.CarryableTools
                 return;
             }
 
+            if (active && !_workPoseActive)
+            {
+                _workSmoothedRotation = Quaternion.identity;
+            }
+
             _workPoseActive = active;
         }
 
@@ -214,7 +229,11 @@ namespace REHozy.CarryableTools
             var finalRotation = baseRotation;
             if (_workPoseActive)
             {
-                finalRotation = ComputeWorkRotation(root.rotation, horizontalVelocity, surfaceNormal, deltaTime);
+                finalRotation = ComputeWorkRotation(
+                    baseRotation,
+                    horizontalVelocity,
+                    surfaceNormal,
+                    deltaTime);
             }
 
             root.SetPositionAndRotation(_smoothedPosition, finalRotation);
@@ -310,10 +329,28 @@ namespace REHozy.CarryableTools
         }
 
         private Quaternion ComputeWorkRotation(
-            Quaternion currentRotation,
+            Quaternion carryRotation,
             Vector3 horizontalVelocity,
             Vector3 surfaceNormal,
             float deltaTime)
+        {
+            var targetRotation = workPoseOrientation == WorkPoseOrientation.TipDownYaw
+                ? ComputeTipDownYawWorkRotation(carryRotation, horizontalVelocity, surfaceNormal)
+                : ComputeSlideOnSurfaceWorkRotation(horizontalVelocity, surfaceNormal);
+
+            if (_workSmoothedRotation == Quaternion.identity)
+            {
+                _workSmoothedRotation = carryRotation;
+            }
+
+            var t = 1f - Mathf.Exp(-workTurnLerpSpeed * deltaTime);
+            _workSmoothedRotation = Quaternion.Slerp(_workSmoothedRotation, targetRotation, t);
+            return _workSmoothedRotation;
+        }
+
+        private Quaternion ComputeSlideOnSurfaceWorkRotation(
+            Vector3 horizontalVelocity,
+            Vector3 surfaceNormal)
         {
             var desiredMoveDir = _lastWorkMoveDir;
             if (horizontalVelocity.sqrMagnitude >= workMinTurnSpeed * workMinTurnSpeed)
@@ -330,20 +367,47 @@ namespace REHozy.CarryableTools
 
             if (forwardOnPlane.sqrMagnitude < 0.0001f)
             {
-                return currentRotation;
+                return transform.rotation;
             }
 
             forwardOnPlane.Normalize();
-            var targetRotation = Quaternion.LookRotation(forwardOnPlane, surfaceNormal);
+            return Quaternion.LookRotation(forwardOnPlane, surfaceNormal);
+        }
 
-            if (_workSmoothedRotation == Quaternion.identity)
+        private Quaternion ComputeTipDownYawWorkRotation(
+            Quaternion carryRotation,
+            Vector3 horizontalVelocity,
+            Vector3 surfaceNormal)
+        {
+            var desiredMoveDir = _lastWorkMoveDir;
+            if (horizontalVelocity.sqrMagnitude >= workMinTurnSpeed * workMinTurnSpeed)
             {
-                _workSmoothedRotation = currentRotation;
+                desiredMoveDir = horizontalVelocity.normalized;
+                _lastWorkMoveDir = desiredMoveDir;
             }
 
-            var t = 1f - Mathf.Exp(-workTurnLerpSpeed * deltaTime);
-            _workSmoothedRotation = Quaternion.Slerp(_workSmoothedRotation, targetRotation, t);
-            return _workSmoothedRotation;
+            var forwardOnPlane = Vector3.ProjectOnPlane(desiredMoveDir, surfaceNormal);
+            if (forwardOnPlane.sqrMagnitude < 0.0001f)
+            {
+                return carryRotation;
+            }
+
+            forwardOnPlane.Normalize();
+
+            var headingOnPlane = Vector3.ProjectOnPlane(carryRotation * Vector3.forward, surfaceNormal);
+            if (headingOnPlane.sqrMagnitude < 0.0001f)
+            {
+                headingOnPlane = Vector3.ProjectOnPlane(carryRotation * Vector3.right, surfaceNormal);
+            }
+
+            if (headingOnPlane.sqrMagnitude < 0.0001f)
+            {
+                return carryRotation;
+            }
+
+            headingOnPlane.Normalize();
+            var yaw = Vector3.SignedAngle(headingOnPlane, forwardOnPlane, surfaceNormal);
+            return Quaternion.AngleAxis(yaw, surfaceNormal) * carryRotation;
         }
 
         private bool TryResolveAim(out Vector3 anchor, out Vector3 surfaceNormal)

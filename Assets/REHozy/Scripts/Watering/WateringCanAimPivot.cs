@@ -8,7 +8,8 @@ namespace REHozy.Watering
     {
         [SerializeField] private Transform tip;
         [SerializeField] private Vector3 pourRotationAxis = Vector3.right;
-        [SerializeField] private float pourAngle = 55f;
+        [SerializeField] private float carryHoldAngle = 38f;
+        [SerializeField] private float pourSpoutAngle = 20f;
         [SerializeField] private float pourLowerDuration = 0.45f;
         [SerializeField] private float pourRaiseDuration = 0.3f;
 
@@ -20,11 +21,13 @@ namespace REHozy.Watering
         private void Awake()
         {
             _baseLocalRotation = transform.localRotation;
+            _pourTilt01 = 1f;
         }
 
         public void UpdatePourTilt(bool wantPour, float deltaTime)
         {
-            var target = wantPour ? 1f : 0f;
+            // 1 = calm carry offset on pivot; 0 = spout follows carry driver aim (pour).
+            var target = wantPour ? 0f : 1f;
             var duration = wantPour ? pourLowerDuration : pourRaiseDuration;
             var speed = 1f / Mathf.Max(duration, 0.01f);
             _pourTilt01 = Mathf.MoveTowards(_pourTilt01, target, speed * deltaTime);
@@ -32,8 +35,7 @@ namespace REHozy.Watering
 
         public void ResetPourTilt()
         {
-            _pourTilt01 = 0f;
-            transform.localRotation = _baseLocalRotation;
+            _pourTilt01 = 1f;
         }
 
         private void LateUpdate()
@@ -45,7 +47,8 @@ namespace REHozy.Watering
             }
 
             var axis = pourRotationAxis.sqrMagnitude > 0.0001f ? pourRotationAxis.normalized : Vector3.right;
-            transform.localRotation = Quaternion.AngleAxis(pourAngle * _pourTilt01, axis) * _baseLocalRotation;
+            var angle = Mathf.Lerp(pourSpoutAngle, carryHoldAngle, _pourTilt01);
+            transform.localRotation = Quaternion.AngleAxis(angle, axis) * _baseLocalRotation;
         }
     }
 }

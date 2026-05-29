@@ -137,7 +137,8 @@ MonoBehaviour:
   maxRayDistance: 200
   tipForwardAxis: {x: 0, y: -0.9805807, z: 0.19611615}
   enableWorkPose: 1
-  workHeightOffsetDelta: -0.12
+  workPoseOrientation: 1
+  workHeightOffsetDelta: -0.42
   workTurnLerpSpeed: 4
   workMinTurnSpeed: 0.25
   positionSmoothTime: 0.1

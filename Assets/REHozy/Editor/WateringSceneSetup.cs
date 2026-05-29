@@ -235,7 +235,6 @@ namespace REHozy.EditorTools
             var carry = root.AddComponent<CarryableCarryDriver>();
             var core = root.AddComponent<CarryableToolCore>();
             var actions = root.AddComponent<WateringCanToolActions>();
-            var indicator = root.AddComponent<WateringAreaIndicator>();
 
             var cam = UnityEngine.Camera.main;
             if (cam != null)
@@ -261,13 +260,8 @@ namespace REHozy.EditorTools
             var soActions = new SerializedObject(actions);
             soActions.FindProperty("aimPivot").objectReferenceValue = aimPivot;
             soActions.FindProperty("waterParticles").objectReferenceValue = particles;
-            soActions.FindProperty("areaIndicator").objectReferenceValue = indicator;
             soActions.FindProperty("waterableMask").intValue = waterableMask;
             soActions.ApplyModifiedPropertiesWithoutUndo();
-
-            var soIndicator = new SerializedObject(indicator);
-            soIndicator.FindProperty("tool").objectReferenceValue = core;
-            soIndicator.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }

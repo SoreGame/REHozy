@@ -29,9 +29,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AmbientStrength: 1
     - _DitherScale: 3
     - _Reveal: 0
-    - _RevealSoftness: 0.04
+    - _RevealSoftness: 0
+    - _SpecularStrength: 0.35
     m_Colors:
     - _BaseColor: {r: 0.35, g: 0.75, b: 0.35, a: 1}
   m_BuildTextureStacks: []

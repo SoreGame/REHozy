@@ -10,7 +10,6 @@ namespace REHozy.Watering
         [Header("Pour")]
         [SerializeField] private WateringCanAimPivot aimPivot;
         [SerializeField] private ParticleSystem waterParticles;
-        [SerializeField] private WateringAreaIndicator areaIndicator;
         [SerializeField] private float wateringRadius = 0.75f;
         [SerializeField] private float waterAmountPerSecond = 1f;
         [SerializeField] private LayerMask waterableMask = ~0;
@@ -21,7 +20,6 @@ namespace REHozy.Watering
         {
             aimPivot = GetComponentInChildren<WateringCanAimPivot>(true);
             waterParticles = GetComponentInChildren<ParticleSystem>(true);
-            areaIndicator = GetComponentInChildren<WateringAreaIndicator>(true);
         }
 
         public bool HasCargo(CarryableToolCore tool) => false;
@@ -48,7 +46,7 @@ namespace REHozy.Watering
             }
 
             var pouring = attackHeld && !returnHoldInProgress;
-            tool.CarryDriver?.SetWorkPoseActive(pouring);
+            tool.CarryDriver?.SetWorkPoseActive(true);
             aimPivot?.UpdatePourTilt(pouring, Time.deltaTime);
 
             if (!pouring)
@@ -58,11 +56,6 @@ namespace REHozy.Watering
             }
 
             SetParticlesPlaying(true);
-            areaIndicator?.SetVisible(true);
-            if (areaIndicator != null)
-            {
-                areaIndicator.Radius = wateringRadius;
-            }
 
             if (!tool.CarryDriver.TryGetGroundAnchor(out var anchor))
             {
@@ -76,7 +69,6 @@ namespace REHozy.Watering
         {
             aimPivot?.ResetPourTilt();
             SetParticlesPlaying(false);
-            areaIndicator?.SetVisible(false);
         }
 
         private void SetParticlesPlaying(bool playing)

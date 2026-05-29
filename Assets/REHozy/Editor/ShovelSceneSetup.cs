@@ -169,6 +169,9 @@ namespace REHozy.EditorTools
                 soCarry.FindProperty("targetCamera").objectReferenceValue = cam;
                 soCarry.FindProperty("heightOffset").floatValue = 0.45f;
                 soCarry.FindProperty("tipForwardAxis").vector3Value = new Vector3(0f, -1f, 0.2f).normalized;
+                soCarry.FindProperty("enableWorkPose").boolValue = true;
+                soCarry.FindProperty("workPoseOrientation").enumValueIndex =
+                    (int)WorkPoseOrientation.TipDownYaw;
                 soCarry.ApplyModifiedPropertiesWithoutUndo();
             }
 
@@ -180,12 +183,17 @@ namespace REHozy.EditorTools
             soCore.ApplyModifiedPropertiesWithoutUndo();
 
             var dirtLayer = LayerMask.NameToLayer("DirtPatch");
+            var soActions = new SerializedObject(actions);
             if (dirtLayer >= 0)
             {
-                var soActions = new SerializedObject(actions);
-                soActions.FindProperty("dirtPatchMask").intValue = 1 << dirtLayer;
-                soActions.ApplyModifiedPropertiesWithoutUndo();
+                soActions.FindProperty("dirtPatchMask").intValue = (1 << dirtLayer) | (1 << 0);
             }
+            else
+            {
+                soActions.FindProperty("dirtPatchMask").intValue = ~0;
+            }
+
+            soActions.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }
