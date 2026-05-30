@@ -44,7 +44,7 @@ namespace REHozy.Dirt
         [SerializeField] private float questCompleteHideDuration = 0.35f;
 
         private Texture2D _deformMap;
-        private Material _materialInstance;
+        private MaterialPropertyBlock _propertyBlock;
         private Vector2 _globalOffsetXZ;
         private float _deformScale;
         private Vector2 _planeHalfExtent;
@@ -175,11 +175,10 @@ namespace REHozy.Dirt
                 return;
             }
 
-            _materialInstance = meshRenderer.material;
+            _propertyBlock ??= new MaterialPropertyBlock();
             ComputeWorldMapping();
             ComputeGroundContactOffset();
             CreateDeformMap();
-            ApplyShaderParams();
             RebuildQuestMassCache();
         }
 
@@ -192,7 +191,7 @@ namespace REHozy.Dirt
 
             TeardownEditorPreview();
             Initialize();
-            _editorPreviewActive = _deformMap != null && _materialInstance != null;
+            _editorPreviewActive = _deformMap != null;
 
 #if UNITY_EDITOR
             UnityEditor.SceneView.RepaintAll();
@@ -218,9 +217,9 @@ namespace REHozy.Dirt
             _mapDirty = false;
             _editorPreviewActive = false;
 
-            if (meshRenderer != null && _materialInstance != null)
+            if (meshRenderer != null)
             {
-                _materialInstance.SetTexture(DeformMapId, null);
+                meshRenderer.SetPropertyBlock(null);
             }
         }
 
@@ -232,10 +231,9 @@ namespace REHozy.Dirt
                 _deformMap = null;
             }
 
-            if (_materialInstance != null)
+            if (meshRenderer != null)
             {
-                DestroyObject(_materialInstance);
-                _materialInstance = null;
+                meshRenderer.SetPropertyBlock(null);
             }
         }
 
@@ -304,10 +302,7 @@ namespace REHozy.Dirt
             _deformMap.LoadRawTextureData(_pixelBuffer);
             _deformMap.Apply(false, false);
 
-            if (_materialInstance != null)
-            {
-                _materialInstance.SetTexture(DeformMapId, _deformMap);
-            }
+            ApplyShaderParams();
 
             _mapDirty = false;
             DirtPlayModeReady?.Invoke(this);
@@ -328,18 +323,26 @@ namespace REHozy.Dirt
 
         private void ApplyShaderParams()
         {
-            if (_materialInstance == null)
+            if (meshRenderer == null || meshRenderer.sharedMaterial == null)
             {
                 return;
             }
 
-            _materialInstance.SetVector(GlobalOffsetXZId, new Vector4(_globalOffsetXZ.x, _globalOffsetXZ.y, 0f, 0f));
-            _materialInstance.SetFloat(DeformScaleId, _deformScale);
-            _materialInstance.SetVector(PlaneHalfExtentId, new Vector4(_planeHalfExtent.x, _planeHalfExtent.y, 0f, 0f));
-            _materialInstance.SetFloat(EdgeFalloffUseObjectPosId, 1f);
-            _materialInstance.SetFloat(EdgeFalloffRadialId, 1f);
-            _materialInstance.SetFloat(EdgeFalloffWidthId, 0.22f);
-            _materialInstance.SetFloat(SnowGroundOffsetId, _groundContactOffset);
+            _propertyBlock ??= new MaterialPropertyBlock();
+            _propertyBlock.SetVector(GlobalOffsetXZId, new Vector4(_globalOffsetXZ.x, _globalOffsetXZ.y, 0f, 0f));
+            _propertyBlock.SetFloat(DeformScaleId, _deformScale);
+            _propertyBlock.SetVector(PlaneHalfExtentId, new Vector4(_planeHalfExtent.x, _planeHalfExtent.y, 0f, 0f));
+            _propertyBlock.SetFloat(EdgeFalloffUseObjectPosId, 1f);
+            _propertyBlock.SetFloat(EdgeFalloffRadialId, 1f);
+            _propertyBlock.SetFloat(EdgeFalloffWidthId, 0.22f);
+            _propertyBlock.SetFloat(SnowGroundOffsetId, _groundContactOffset);
+
+            if (_deformMap != null)
+            {
+                _propertyBlock.SetTexture(DeformMapId, _deformMap);
+            }
+
+            meshRenderer.SetPropertyBlock(_propertyBlock);
         }
 
         private float _groundContactOffset;
@@ -534,24 +537,30 @@ namespace REHozy.Dirt
 
         private void SyncQuestFalloffFromMaterial()
         {
-            if (_materialInstance == null)
+            if (meshRenderer == null)
             {
                 return;
             }
 
-            if (_materialInstance.HasProperty(EdgeFalloffWidthId))
+            var mat = meshRenderer.sharedMaterial;
+            if (mat == null)
             {
-                _edgeFalloffWidthForQuest = _materialInstance.GetFloat(EdgeFalloffWidthId);
+                return;
             }
 
-            if (_materialInstance.HasProperty(EdgeFalloffRadialId))
+            if (mat.HasProperty(EdgeFalloffWidthId))
             {
-                _edgeFalloffRadialForQuest = _materialInstance.GetFloat(EdgeFalloffRadialId) > 0.5f;
+                _edgeFalloffWidthForQuest = mat.GetFloat(EdgeFalloffWidthId);
             }
 
-            if (_materialInstance.HasProperty(EdgeFalloffEnableId))
+            if (mat.HasProperty(EdgeFalloffRadialId))
             {
-                _edgeFalloffEnabledForQuest = _materialInstance.GetFloat(EdgeFalloffEnableId) > 0.5f;
+                _edgeFalloffRadialForQuest = mat.GetFloat(EdgeFalloffRadialId) > 0.5f;
+            }
+
+            if (mat.HasProperty(EdgeFalloffEnableId))
+            {
+                _edgeFalloffEnabledForQuest = mat.GetFloat(EdgeFalloffEnableId) > 0.5f;
             }
         }
 
@@ -737,7 +746,7 @@ namespace REHozy.Dirt
 
             if (Application.isPlaying)
             {
-                if (_materialInstance == null || _deformMap == null)
+                if (_propertyBlock == null || _deformMap == null)
                 {
                     Initialize();
                     return;
