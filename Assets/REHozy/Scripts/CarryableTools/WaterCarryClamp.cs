@@ -39,6 +39,73 @@ namespace REHozy.CarryableTools
             return rootPosition + Vector3.up * (minTipY - tipWorld.y);
         }
 
+        public static Vector3 ClampRootSoTipAboveGround(
+            Transform root,
+            Transform tip,
+            Vector3 rootPosition,
+            Quaternion rootRotation,
+            float clearance = DefaultTipClearance,
+            LayerMask groundMask = default)
+        {
+            if (root == null || tip == null || groundMask.value == 0)
+            {
+                return rootPosition;
+            }
+
+            var tipLocal = tip.parent == root ? tip.localPosition : root.InverseTransformPoint(tip.position);
+            var tipWorld = rootPosition + rootRotation * tipLocal;
+
+            if (ShouldUseWaterSurfaceAt(tipWorld, groundMask, out _))
+            {
+                return rootPosition;
+            }
+
+            if (!TryGetGroundSurfaceAnchor(tipWorld, groundMask, out var groundAnchor, out var surfaceNormal))
+            {
+                return rootPosition;
+            }
+
+            if (surfaceNormal.sqrMagnitude < 0.0001f)
+            {
+                surfaceNormal = Vector3.up;
+            }
+            else
+            {
+                surfaceNormal.Normalize();
+            }
+
+            var desiredTip = groundAnchor + surfaceNormal * clearance;
+            var push = Vector3.Dot(desiredTip - tipWorld, surfaceNormal);
+            if (push <= 0f)
+            {
+                return rootPosition;
+            }
+
+            return rootPosition + surfaceNormal * push;
+        }
+
+        public static bool TryGetMinGroundTipHeight(
+            Vector3 tipWorld,
+            LayerMask groundMask,
+            float clearance,
+            out float minTipY)
+        {
+            minTipY = float.NegativeInfinity;
+
+            if (groundMask.value == 0 || ShouldUseWaterSurfaceAt(tipWorld, groundMask, out _))
+            {
+                return false;
+            }
+
+            if (!TryGetHighestGroundY(tipWorld, groundMask, out var groundY))
+            {
+                return false;
+            }
+
+            minTipY = groundY + clearance;
+            return true;
+        }
+
         public static bool TryGetHighestGroundY(Vector3 worldPoint, LayerMask groundMask, out float groundY)
         {
             return TryGetHighestGroundY(worldPoint, groundMask, DefaultGroundProbeRadius, out groundY);
@@ -170,6 +237,11 @@ namespace REHozy.CarryableTools
                         continue;
                     }
 
+                    if (!SupportsClosestPoint(col))
+                    {
+                        continue;
+                    }
+
                     var closest = col.ClosestPoint(worldPoint);
                     var away = worldPoint - closest;
                     var dist = away.magnitude;
@@ -230,17 +302,24 @@ namespace REHozy.CarryableTools
             }
         }
 
+        private static bool SupportsClosestPoint(Collider col) =>
+            col is BoxCollider or SphereCollider or CapsuleCollider
+            || (col is MeshCollider mesh && mesh.convex);
+
         private static void AccumulateColliderGroundY(
             Collider col,
             Vector3 worldPoint,
             ref float bestY,
             ref bool found)
         {
-            var closest = col.ClosestPoint(worldPoint);
-            if (closest.y > bestY)
+            if (SupportsClosestPoint(col))
             {
-                bestY = closest.y;
-                found = true;
+                var closest = col.ClosestPoint(worldPoint);
+                if (closest.y > bestY)
+                {
+                    bestY = closest.y;
+                    found = true;
+                }
             }
 
             if (!IsTouchingGroundCollider(col, worldPoint))
@@ -257,8 +336,15 @@ namespace REHozy.CarryableTools
 
         private static bool IsTouchingGroundCollider(Collider col, Vector3 worldPoint)
         {
-            var closest = col.ClosestPoint(worldPoint);
-            return (worldPoint - closest).sqrMagnitude <= GroundPenetrationSlack * GroundPenetrationSlack;
+            if (SupportsClosestPoint(col))
+            {
+                var closest = col.ClosestPoint(worldPoint);
+                return (worldPoint - closest).sqrMagnitude <= GroundPenetrationSlack * GroundPenetrationSlack;
+            }
+
+            var bounds = col.bounds;
+            bounds.Expand(GroundPenetrationSlack);
+            return bounds.Contains(worldPoint);
         }
 
         public static bool ShouldUseWaterSurfaceAt(

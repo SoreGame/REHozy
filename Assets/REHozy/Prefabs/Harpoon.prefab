@@ -141,6 +141,8 @@ MonoBehaviour:
   tipForwardAxis: {x: 0, y: -1, z: 0}
   clampTipAboveWater: 1
   waterTipClearance: 0.08
+  clampTipAboveGround: 1
+  groundTipClearance: 0.08
   positionSmoothTime: 0.1
   maxTiltAngle: 14
   tiltDegreesPerSpeed: 4

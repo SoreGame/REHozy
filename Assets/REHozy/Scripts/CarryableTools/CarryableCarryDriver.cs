@@ -1,5 +1,4 @@
 using System;
-using REHozy;
 using REHozy.Decoration;
 using UnityEngine;
 
@@ -28,6 +27,10 @@ namespace REHozy.CarryableTools
         [Header("Water")]
         [SerializeField] private bool clampTipAboveWater;
         [SerializeField] private float waterTipClearance = WaterCarryClamp.DefaultTipClearance;
+
+        [Header("Ground")]
+        [SerializeField] private bool clampTipAboveGround;
+        [SerializeField] private float groundTipClearance = WaterCarryClamp.DefaultTipClearance;
 
         [Header("Work pose (optional)")]
         [SerializeField] private bool enableWorkPose;
@@ -78,9 +81,10 @@ namespace REHozy.CarryableTools
         private Quaternion _smoothedCarryRotation;
         private bool _carryRotationInitialized;
         private ICarryableCarryRotationModifier _carryRotationModifier;
-        private Quaternion _dbgLastWrittenRotation = Quaternion.identity;
-        private Vector3 _dbgLastWrittenPosition;
-        private bool _dbgHasLastWritten;
+        private Vector3 _smoothedGroundNormal = Vector3.up;
+        private bool _smoothedGroundNormalInitialized;
+
+        private const float GroundNormalSmoothTime = 0.12f;
 
         public float HeightOffset
         {
@@ -97,6 +101,10 @@ namespace REHozy.CarryableTools
         public bool ClampTipAboveWater => clampTipAboveWater;
 
         public float WaterTipClearance => waterTipClearance;
+
+        public bool ClampTipAboveGround => clampTipAboveGround;
+
+        public float GroundTipClearance => groundTipClearance;
 
         public bool TryGetGroundAnchor(out Vector3 groundPoint)
         {
@@ -208,6 +216,7 @@ namespace REHozy.CarryableTools
             _bindTipCached = false;
             _carryRotationInitialized = false;
             _smoothedAimInitialized = false;
+            _smoothedGroundNormalInitialized = false;
 
             var forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
             _lastYawDirection = forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;
@@ -255,18 +264,14 @@ namespace REHozy.CarryableTools
             }
 
             var deltaTime = Mathf.Max(Time.deltaTime, 0.0001f);
-            var dbgEntryPos = root.position;
-            var dbgEntryRot = root.rotation;
-            var dbgIsWateringCan = GetComponent<REHozy.Watering.WateringCanToolActions>() != null;
+            var stableRotation = ComputeStableCarryRotation(root, surfaceNormal);
 
             if (tipPivot == null)
             {
                 _currentTilt = Mathf.SmoothDamp(_currentTilt, 0f, ref _tiltSmoothVelocity, tiltSmooth);
                 _lastSmoothedPosition = _smoothedPosition;
-                var stableRotation = ApplyModifierPitch(SmoothCarryRotation(
-                    ComputeStableCarryRotation(root, surfaceNormal),
-                    deltaTime));
-                root.SetPositionAndRotation(_smoothedPosition, stableRotation);
+                var uprightRotation = ApplyModifierPitch(SmoothCarryRotation(stableRotation, deltaTime));
+                root.SetPositionAndRotation(_smoothedPosition, uprightRotation);
                 return true;
             }
 
@@ -275,14 +280,10 @@ namespace REHozy.CarryableTools
 
             var horizontalVelocity = new Vector3(moveVelocity.x, 0f, moveVelocity.z);
 
-            var smoothBase = SmoothCarryRotation(
-                ComputeStableCarryRotation(root, surfaceNormal),
-                deltaTime);
+            var smoothBase = SmoothCarryRotation(stableRotation, deltaTime);
             var finalRotation = ApplyModifierPitch(smoothBase);
             ResolveCarryRotationModifier();
-            var dbgPitchDelta = _carryRotationModifier != null && _carryRotationModifier.UsesYawPitchCarry
-                ? Quaternion.Angle(smoothBase, finalRotation)
-                : 0f;
+
             if (_workPoseActive)
             {
                 finalRotation = ComputeWorkRotation(
@@ -294,11 +295,11 @@ namespace REHozy.CarryableTools
             }
 
             root.SetPositionAndRotation(_smoothedPosition, finalRotation);
-            var dbgRotBeforeTilt = root.rotation;
 
             var targetTilt = 0f;
 
             if (!_workPoseActive
+                && !clampTipAboveGround
                 && _carryRotationModifier == null
                 && horizontalVelocity.sqrMagnitude >= minTiltSpeed * minTiltSpeed)
             {
@@ -333,51 +334,6 @@ namespace REHozy.CarryableTools
                     root, tipPivot, root.position, root.rotation, waterTipClearance, groundMask);
             }
 
-            // #region agent log
-            if (dbgIsWateringCan)
-            {
-                var externRotDelta = _dbgHasLastWritten
-                    ? Quaternion.Angle(_dbgLastWrittenRotation, dbgEntryRot)
-                    : 0f;
-                var frameRotDelta = _dbgHasLastWritten
-                    ? Quaternion.Angle(_dbgLastWrittenRotation, root.rotation)
-                    : 0f;
-                var appliedRotDelta = Quaternion.Angle(dbgEntryRot, root.rotation);
-                var tiltRotDelta = Quaternion.Angle(dbgRotBeforeTilt, root.rotation);
-                var posDelta = _dbgHasLastWritten
-                    ? Vector3.Distance(_dbgLastWrittenPosition, root.position)
-                    : 0f;
-                var shouldLog = Time.frameCount % 5 == 0
-                    || frameRotDelta > 2f
-                    || externRotDelta > 0.5f
-                    || tiltRotDelta > 1f;
-
-                if (shouldLog)
-                {
-                    DebugAgentLog.Log(
-                        externRotDelta > 0.5f ? "H-E" : (tiltRotDelta > 1f ? "H-A" : (dbgPitchDelta > 0.5f ? "H-B" : "H-D")),
-                        "CarryableCarryDriver.cs:TryApplySmoothedCarry",
-                        "watering-carry-frame",
-                        "{\"runId\":\"post-fix-v3\",\"frame\":" + Time.frameCount +
-                        ",\"externRotDelta\":" + externRotDelta.ToString("F2") +
-                        ",\"appliedRotDelta\":" + appliedRotDelta.ToString("F2") +
-                        ",\"frameRotDelta\":" + frameRotDelta.ToString("F2") +
-                        ",\"tiltRotDelta\":" + tiltRotDelta.ToString("F2") +
-                        ",\"pitchDelta\":" + dbgPitchDelta.ToString("F2") +
-                        ",\"posDelta\":" + posDelta.ToString("F4") +
-                        ",\"currentTilt\":" + _currentTilt.ToString("F2") +
-                        ",\"workPose\":" + (_workPoseActive ? "true" : "false") +
-                        ",\"targetPosGap\":" + Vector3.Distance(targetPosition, _smoothedPosition).ToString("F4") +
-                        ",\"anchorDelta\":" + (_hasLastAimAnchor ? Vector3.Distance(_lastAimAnchor, targetPosition).ToString("F4") : "0") +
-                        "}");
-                }
-
-                _dbgLastWrittenRotation = root.rotation;
-                _dbgLastWrittenPosition = root.position;
-                _dbgHasLastWritten = true;
-            }
-            // #endregion
-
             return true;
         }
 
@@ -404,15 +360,41 @@ namespace REHozy.CarryableTools
             }
 
             var carryUp = ResolveCarryUpVector(surfaceNormal);
-            position = anchor + carryUp * height;
-
             CacheBindTipPose(root, tipPivot);
             rotation = ComputeStableCarryRotation(root, carryUp);
 
-            if (clampTipAboveWater)
+            var useGroundTipAnchor = clampTipAboveGround
+                && tipPivot != null
+                && !WaterCarryClamp.ShouldUseWaterSurfaceAt(anchor, groundMask, out _);
+
+            if (useGroundTipAnchor)
             {
-                position = WaterCarryClamp.ClampRootSoTipAboveWater(
-                    root, tipPivot, position, rotation, waterTipClearance, groundMask);
+                var tipLocal = GetScaledTipLocalOffset(root, tipPivot);
+                var normal = surfaceNormal.sqrMagnitude > 0.0001f ? surfaceNormal.normalized : Vector3.up;
+                var rotForPosition = _carryRotationInitialized ? _smoothedCarryRotation : rotation;
+                position = anchor + normal * groundTipClearance - rotForPosition * tipLocal;
+
+                if (clampTipAboveWater)
+                {
+                    position = WaterCarryClamp.ClampRootSoTipAboveWater(
+                        root, tipPivot, position, rotForPosition, waterTipClearance, groundMask);
+                }
+            }
+            else
+            {
+                position = anchor + carryUp * height;
+
+                if (clampTipAboveWater)
+                {
+                    position = WaterCarryClamp.ClampRootSoTipAboveWater(
+                        root, tipPivot, position, rotation, waterTipClearance, groundMask);
+                }
+
+                if (clampTipAboveGround)
+                {
+                    position = WaterCarryClamp.ClampRootSoTipAboveGround(
+                        root, tipPivot, position, rotation, groundTipClearance, groundMask);
+                }
             }
 
             return true;
@@ -711,7 +693,16 @@ namespace REHozy.CarryableTools
                 return true;
             }
 
-            FlattenAnchorToTopGround(ref anchor, ref surfaceNormal);
+            if (clampTipAboveGround)
+            {
+                SnapAnchorToGroundSurface(ref anchor, ref surfaceNormal);
+                SmoothGroundSurfaceNormal(ref surfaceNormal);
+            }
+            else
+            {
+                FlattenAnchorToTopGround(ref anchor, ref surfaceNormal);
+            }
+
             RememberAimAnchor(anchor);
             return true;
         }
@@ -744,6 +735,61 @@ namespace REHozy.CarryableTools
 
             anchor = new Vector3(anchor.x, downHit.point.y, anchor.z);
             surfaceNormal = Vector3.up;
+        }
+
+        private void SnapAnchorToGroundSurface(ref Vector3 anchor, ref Vector3 surfaceNormal)
+        {
+            if (!DecorationPlacementUtility.TrySampleTopGroundAt(
+                    anchor, groundMask, null, out var hit))
+            {
+                return;
+            }
+
+            anchor = hit.point;
+            if (hit.normal.sqrMagnitude > 0.0001f)
+            {
+                surfaceNormal = hit.normal;
+            }
+        }
+
+        private void SmoothGroundSurfaceNormal(ref Vector3 surfaceNormal)
+        {
+            if (surfaceNormal.sqrMagnitude < 0.0001f)
+            {
+                surfaceNormal = Vector3.up;
+            }
+            else
+            {
+                surfaceNormal.Normalize();
+            }
+
+            if (!_smoothedGroundNormalInitialized)
+            {
+                _smoothedGroundNormal = surfaceNormal;
+                _smoothedGroundNormalInitialized = true;
+            }
+            else
+            {
+                var t = 1f - Mathf.Exp(-Time.deltaTime / Mathf.Max(GroundNormalSmoothTime, 0.01f));
+                _smoothedGroundNormal = Vector3.Slerp(_smoothedGroundNormal, surfaceNormal, t).normalized;
+            }
+
+            surfaceNormal = _smoothedGroundNormal;
+        }
+
+        private static Vector3 GetScaledTipLocalOffset(Transform root, Transform tipPivot)
+        {
+            if (root == null || tipPivot == null)
+            {
+                return Vector3.zero;
+            }
+
+            if (tipPivot.parent == root)
+            {
+                return Vector3.Scale(tipPivot.localPosition, root.lossyScale);
+            }
+
+            return root.InverseTransformPoint(tipPivot.position);
         }
 
         private bool TryApplyWaterSurfaceAnchor(ref Vector3 anchor, ref Vector3 surfaceNormal)

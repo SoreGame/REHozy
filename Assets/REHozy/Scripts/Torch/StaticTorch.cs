@@ -18,6 +18,10 @@ namespace REHozy.Torch
         [SerializeField] private float igniteSpeedMultiplier = 1.5f;
         [SerializeField] private bool startLit;
 
+        [Header("Quest")]
+        [SerializeField] private QuestSO questOnIgnite;
+        [SerializeField] private int questProgressAmount = 1;
+
         [Header("Ground snap")]
         [SerializeField] private bool snapToGroundOnStart;
         [SerializeField] private Transform baseSnapPivot;
@@ -25,6 +29,7 @@ namespace REHozy.Torch
         [SerializeField] private LayerMask groundMask = ~0;
 
         private float _igniteProgress;
+        private bool _questProgressReported;
 
         public bool IsLit => flamePresenter != null && flamePresenter.IsLit;
         public Transform FlamePoint => flamePoint != null ? flamePoint : transform;
@@ -120,7 +125,21 @@ namespace REHozy.Torch
             {
                 _igniteProgress = 0f;
                 flamePresenter?.SetLit(true);
+                ReportIgniteQuestProgress();
             }
+        }
+
+        private void ReportIgniteQuestProgress()
+        {
+            if (_questProgressReported || questOnIgnite == null || questProgressAmount == 0)
+            {
+                return;
+            }
+
+            _questProgressReported = true;
+            QuestBus.GetInstance().OnUpdateCounter?.Invoke(
+                questOnIgnite.QuestId,
+                questProgressAmount);
         }
 
         private void OnEnable()

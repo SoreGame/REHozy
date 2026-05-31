@@ -285,23 +285,69 @@ namespace REHozy.Dirt
             _clearedAfterComplete = true;
         }
 
+        /// <summary>
+        /// Hides every dirt patch that still has visible dirt. Call manually when the quest goal is reached
+        /// but some patches were not fully dug out.
+        /// </summary>
+        [ContextMenu("Clear Remaining Dirt Patches")]
+        public void ClearRemainingDirtPatches()
+        {
+            ClearRemainingDirtPatches(alsoCompleteQuestProgress: false);
+        }
+
+        /// <param name="alsoCompleteQuestProgress">When true, tops up quest counter to Goal before hiding patches.</param>
+        public void ClearRemainingDirtPatches(bool alsoCompleteQuestProgress)
+        {
+            if (!Application.isPlaying)
+            {
+                Debug.LogWarning("[DirtQuestTracker] ClearRemainingDirtPatches works in Play Mode only.");
+                return;
+            }
+
+            if (alsoCompleteQuestProgress && quest != null && !_clearedAfterComplete)
+            {
+                var remainingProgress = quest.Goal - _lastSentProgress;
+                if (remainingProgress > 0)
+                {
+                    QuestBus.GetInstance().OnUpdateCounter?.Invoke(quest.QuestId, remainingProgress);
+                    _lastSentProgress = quest.Goal;
+                }
+            }
+
+            var hiddenCount = HideRemainingDirtMeshes();
+            _clearedAfterComplete = true;
+            Debug.Log($"[DirtQuestTracker] Cleared {hiddenCount} remaining dirt patch(es).");
+        }
+
         private void HideAllDirtMeshesAfterQuest()
         {
             var hidden = new HashSet<DirtDeformPatch>();
+            CollectQuestDirtPatches(hidden, onlyWithRemainingDirt: false);
+        }
+
+        private int HideRemainingDirtMeshes()
+        {
+            var hidden = new HashSet<DirtDeformPatch>();
+            return CollectQuestDirtPatches(hidden, onlyWithRemainingDirt: true);
+        }
+
+        private int CollectQuestDirtPatches(HashSet<DirtDeformPatch> hidden, bool onlyWithRemainingDirt)
+        {
+            RefreshPatchList();
 
             foreach (var patch in _trackedPatches)
             {
-                TryHideDirtPatch(patch, hidden);
+                TryHideDirtPatch(patch, hidden, onlyWithRemainingDirt);
             }
 
             foreach (var entry in _patchBaselines)
             {
-                TryHideDirtPatch(entry.Key, hidden);
+                TryHideDirtPatch(entry.Key, hidden, onlyWithRemainingDirt);
             }
 
             if (!autoDiscoverPatches)
             {
-                return;
+                return hidden.Count;
             }
 
             var allPatches = FindObjectsByType<DirtDeformPatch>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
@@ -318,13 +364,20 @@ namespace REHozy.Dirt
                     continue;
                 }
 
-                TryHideDirtPatch(patch, hidden);
+                TryHideDirtPatch(patch, hidden, onlyWithRemainingDirt);
             }
+
+            return hidden.Count;
         }
 
-        private void TryHideDirtPatch(DirtDeformPatch patch, HashSet<DirtDeformPatch> hidden)
+        private void TryHideDirtPatch(DirtDeformPatch patch, HashSet<DirtDeformPatch> hidden, bool onlyWithRemainingDirt)
         {
             if (patch == null || hidden.Contains(patch))
+            {
+                return;
+            }
+
+            if (onlyWithRemainingDirt && !patch.HasRemainingDirt(completeWhenRemainingBelow))
             {
                 return;
             }

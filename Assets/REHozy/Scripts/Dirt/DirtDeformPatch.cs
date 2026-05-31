@@ -535,6 +535,44 @@ namespace REHozy.Dirt
             return Mathf.Clamp01(GetQuestMass() / _baselineMass);
         }
 
+        /// <summary>
+        /// True when the patch mesh is still visible and has dirt above the given remaining ratio.
+        /// </summary>
+        public bool HasRemainingDirt(float remainingRatioThreshold = 0.05f)
+        {
+            if (!isActiveAndEnabled || !gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            if (meshRenderer != null && !meshRenderer.enabled)
+            {
+                return false;
+            }
+
+            if (transform.localScale.sqrMagnitude <= 0.0001f)
+            {
+                return false;
+            }
+
+            if (!Application.isPlaying)
+            {
+                return true;
+            }
+
+            if (!IsPlayModeReady)
+            {
+                return true;
+            }
+
+            if (_baselineMass > 0f)
+            {
+                return GetRemainingRatio01() > remainingRatioThreshold;
+            }
+
+            return GetQuestMass() > 0f;
+        }
+
         private void SyncQuestFalloffFromMaterial()
         {
             if (meshRenderer == null)

@@ -166,6 +166,8 @@ MonoBehaviour:
   igniteDuration: 1.5
   igniteSpeedMultiplier: 1.5
   startLit: 0
+  questOnIgnite: {fileID: 11400000, guid: 80207ccff00d0e249ae714c15ef8b314, type: 2}
+  questProgressAmount: 1
 --- !u!1 &3605415582283595895
 GameObject:
   m_ObjectHideFlags: 0

@@ -62,6 +62,14 @@ public sealed class QuestWorldScaleTransition : MonoBehaviour
     public void PlayHide(Action onComplete = null)
     {
         StopRoutine();
+
+        if (!isActiveAndEnabled)
+        {
+            ApplyInstantHidden();
+            onComplete?.Invoke();
+            return;
+        }
+
         PrepareToolForHide();
         SetCollidersEnabled(false);
         _routine = StartCoroutine(AnimateScale(transform.localScale, Vector3.zero, () =>

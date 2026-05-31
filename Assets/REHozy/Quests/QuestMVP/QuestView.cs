@@ -37,6 +37,7 @@ public class QuestView : MonoBehaviour
 
     private void OnEnable()
     {
+        UiEventSystemUtility.EnsureAvailable();
         StaticInput.GetInstance().UI.Enable();
         StaticInput.GetInstance().UI.VisiblePanel.performed += SetVisibleList;
 
@@ -218,6 +219,9 @@ public class QuestView : MonoBehaviour
     private void SetListVisible(bool visible)
     {
         listVisible = visible;
+        if (visible)
+            UiEventSystemUtility.EnsureAvailable();
+
         _listPanel.SetActive(listVisible);
         GameplayUiLock.SetActive(listVisible);
         if (listVisible)
