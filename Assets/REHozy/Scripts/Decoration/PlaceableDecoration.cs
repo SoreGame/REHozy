@@ -16,10 +16,6 @@ namespace REHozy.Decoration
         [Header("Carry")]
         [SerializeField] private float carryPositionSmoothTime = 0.1f;
 
-        [Header("Carry rotation")]
-        [Tooltip("Yaw degrees per mouse-wheel notch. Only changes while scrolling; no inertia.")]
-        [SerializeField] private float scrollYawDegreesPerNotch = 5f;
-
         private PlaceableDecorationState _state = PlaceableDecorationState.Placed;
         private float _carryYawDegrees;
         private Vector3 _carryPositionVelocity;
@@ -103,17 +99,6 @@ namespace REHozy.Decoration
             carryDriver?.ResetCarryMotion(transform.position);
             _placementPreview?.SetVisible(true);
             SetCursorVisible(false);
-        }
-
-        public void ApplyScrollRotation(float scrollNotches)
-        {
-            if (_state != PlaceableDecorationState.Carried || Mathf.Abs(scrollNotches) < 0.0001f)
-            {
-                return;
-            }
-
-            _carryYawDegrees += scrollNotches * scrollYawDegreesPerNotch;
-            transform.rotation = Quaternion.Euler(0f, _carryYawDegrees, 0f);
         }
 
         public void TickCarried(UnityEngine.Camera camera)

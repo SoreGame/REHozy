@@ -65,31 +65,6 @@ namespace REHozy.Decoration
             UpdateWhileIdle();
         }
 
-        private void LateUpdate()
-        {
-            if (REHozy.GameplayUiLock.IsActive)
-            {
-                return;
-            }
-
-            if (!DecorationCarrySession.IsCarrying)
-            {
-                return;
-            }
-
-            var active = DecorationCarrySession.Active;
-            if (active == null)
-            {
-                return;
-            }
-
-            var scrollNotches = DecorationScrollReader.ReadScrollNotches();
-            if (Mathf.Abs(scrollNotches) > 0.0001f)
-            {
-                active.ApplyScrollRotation(scrollNotches);
-            }
-        }
-
         private void UpdateWhileCarrying()
         {
             var active = DecorationCarrySession.Active;

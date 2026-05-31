@@ -12,8 +12,7 @@ namespace REHozy.Torch
 
         [SerializeField] private Transform flamePoint;
         [SerializeField] private TorchFlamePresenter flamePresenter;
-        [SerializeField] private float igniteRadius = 1.1f;
-        [SerializeField] private float maxVerticalReach = 1.5f;
+        [SerializeField] private Collider igniteCollider;
         [SerializeField] private float igniteDuration = 1.5f;
         [SerializeField] private float igniteSpeedMultiplier = 1.5f;
         [SerializeField] private bool startLit;
@@ -30,6 +29,7 @@ namespace REHozy.Torch
         {
             flamePoint = transform;
             flamePresenter = GetComponentInChildren<TorchFlamePresenter>(true);
+            ResolveIgniteCollider();
         }
 
         private void Awake()
@@ -38,6 +38,8 @@ namespace REHozy.Torch
             {
                 flamePresenter = GetComponentInChildren<TorchFlamePresenter>(true);
             }
+
+            ResolveIgniteCollider();
 
             if (GetComponent<ObjectOutlineHighlight>() == null)
             {
@@ -56,14 +58,8 @@ namespace REHozy.Torch
 
         public bool ContainsPoint(Vector3 worldPoint)
         {
-            var delta = worldPoint - FlamePoint.position;
-            var flat = new Vector2(delta.x, delta.z);
-            if (flat.sqrMagnitude > igniteRadius * igniteRadius)
-            {
-                return false;
-            }
-
-            return Mathf.Abs(delta.y) <= maxVerticalReach;
+            ResolveIgniteCollider();
+            return TorchIgnitionColliderUtility.ContainsWorldPoint(igniteCollider, worldPoint);
         }
 
         public static StaticTorch FindBestLitForTip(Vector3 tipWorld)
@@ -98,7 +94,7 @@ namespace REHozy.Torch
                 return;
             }
 
-            if ((tipWorld - FlamePoint.position).sqrMagnitude > igniteRadius * igniteRadius)
+            if (!ContainsPoint(tipWorld))
             {
                 _igniteProgress = 0f;
                 return;
@@ -125,11 +121,42 @@ namespace REHozy.Torch
             ActiveStaticTorches.Remove(this);
         }
 
+        private void OnValidate()
+        {
+            ResolveIgniteCollider();
+        }
+
+        private void ResolveIgniteCollider()
+        {
+            if (igniteCollider != null)
+            {
+                return;
+            }
+
+            igniteCollider = GetComponent<Collider>();
+            if (igniteCollider == null)
+            {
+                igniteCollider = GetComponentInChildren<Collider>(true);
+            }
+        }
+
         private void OnDrawGizmosSelected()
         {
-            var center = FlamePoint.position;
+            ResolveIgniteCollider();
             Gizmos.color = new Color(1f, 0.7f, 0.2f, 0.35f);
-            Gizmos.DrawWireSphere(center, igniteRadius);
+
+            if (igniteCollider is SphereCollider sphere)
+            {
+                Gizmos.matrix = igniteCollider.transform.localToWorldMatrix;
+                Gizmos.DrawWireSphere(sphere.center, sphere.radius);
+                return;
+            }
+
+            if (igniteCollider != null)
+            {
+                Gizmos.matrix = Matrix4x4.identity;
+                Gizmos.DrawWireCube(igniteCollider.bounds.center, igniteCollider.bounds.size);
+            }
         }
     }
 }

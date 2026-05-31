@@ -17,15 +17,10 @@ namespace REHozy.Torch
         [SerializeField] private float idleBurnDuration = 12f;
         [SerializeField] private float burnDuration = 25f;
         [SerializeField] private float idleSpeedThreshold = 0.2f;
-        [SerializeField] private float staticTorchSearchRadius = 2f;
-        [SerializeField] private LayerMask interactionMask = ~0;
-
         [Header("Movement burn-out")]
         [SerializeField] private float movementBurnReferenceSpeed = 2.5f;
         [SerializeField] private float movementBurnExtraPerReferenceSpeed = 1.5f;
         [SerializeField] private float maxMovementBurnMultiplier = 5f;
-
-        private static readonly Collider[] OverlapBuffer = new Collider[24];
 
         private CarryableToolCore _core;
         private float _igniteProgress01;
@@ -287,28 +282,17 @@ namespace REHozy.Torch
 
         private void TryIgniteStaticTorches(Vector3 tip, float deltaTime)
         {
-            var count = Physics.OverlapSphereNonAlloc(
-                tip,
-                staticTorchSearchRadius,
-                OverlapBuffer,
-                interactionMask,
-                QueryTriggerInteraction.Collide);
-
-            for (var i = 0; i < count; i++)
+            var aimedDown = aimPivot.IsAimedDownEnough;
+            var staticTorches = StaticTorch.ActiveInScene;
+            for (var i = 0; i < staticTorches.Count; i++)
             {
-                var col = OverlapBuffer[i];
-                if (col == null)
+                var staticTorch = staticTorches[i];
+                if (staticTorch == null || staticTorch.IsLit)
                 {
                     continue;
                 }
 
-                var staticTorch = col.GetComponentInParent<StaticTorch>();
-                if (staticTorch == null)
-                {
-                    continue;
-                }
-
-                staticTorch.TryAccumulateIgnite(tip, _isLit, aimPivot.IsAimedDownEnough, deltaTime);
+                staticTorch.TryAccumulateIgnite(tip, _isLit, aimedDown, deltaTime);
             }
         }
 

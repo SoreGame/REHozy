@@ -10,8 +10,8 @@ namespace REHozy.Torch
         private static readonly List<TorchIgnitionSource> ActiveSources = new();
 
         [SerializeField] private Transform ignitePoint;
+        [SerializeField] private Collider igniteCollider;
         [SerializeField] private float igniteRadius = 2f;
-        [SerializeField] private float maxVerticalReach = 2.5f;
         [SerializeField] private float igniteSpeedMultiplier = 1f;
 
         public Transform IgnitePoint => ignitePoint != null ? ignitePoint : transform;
@@ -25,18 +25,13 @@ namespace REHozy.Torch
             ignitePoint = point;
             igniteRadius = radius;
             igniteSpeedMultiplier = speedMultiplier;
+            SyncSphereColliderRadius();
         }
 
         public bool ContainsPoint(Vector3 worldPoint)
         {
-            var delta = worldPoint - IgnitePoint.position;
-            var flat = new Vector2(delta.x, delta.z);
-            if (flat.sqrMagnitude > igniteRadius * igniteRadius)
-            {
-                return false;
-            }
-
-            return Mathf.Abs(delta.y) <= maxVerticalReach;
+            ResolveIgniteCollider();
+            return TorchIgnitionColliderUtility.ContainsWorldPoint(igniteCollider, worldPoint);
         }
 
         public static TorchIgnitionSource FindBestForTip(
@@ -77,6 +72,11 @@ namespace REHozy.Torch
             return best;
         }
 
+        private void Awake()
+        {
+            ResolveIgniteCollider();
+        }
+
         private void OnEnable()
         {
             if (!ActiveSources.Contains(this))
@@ -90,16 +90,67 @@ namespace REHozy.Torch
             ActiveSources.Remove(this);
         }
 
+        private void OnValidate()
+        {
+            ResolveIgniteCollider();
+            SyncSphereColliderRadius();
+        }
+
         private void Reset()
         {
             ignitePoint = transform;
+            ResolveIgniteCollider();
+        }
+
+        private void ResolveIgniteCollider()
+        {
+            if (igniteCollider != null)
+            {
+                return;
+            }
+
+            igniteCollider = GetComponent<Collider>();
+            if (igniteCollider == null)
+            {
+                igniteCollider = GetComponentInChildren<Collider>(true);
+            }
+        }
+
+        private void SyncSphereColliderRadius()
+        {
+            if (igniteCollider is not SphereCollider sphere)
+            {
+                return;
+            }
+
+            sphere.radius = igniteRadius;
+            if (ignitePoint != null)
+            {
+                sphere.center = transform.InverseTransformPoint(ignitePoint.position);
+            }
         }
 
         private void OnDrawGizmosSelected()
         {
-            var center = IgnitePoint.position;
+            ResolveIgniteCollider();
             Gizmos.color = new Color(1f, 0.45f, 0.1f, 0.35f);
-            Gizmos.DrawWireSphere(center, igniteRadius);
+
+            if (igniteCollider is SphereCollider sphere)
+            {
+                Gizmos.matrix = igniteCollider.transform.localToWorldMatrix;
+                Gizmos.DrawWireSphere(sphere.center, sphere.radius);
+                return;
+            }
+
+            if (igniteCollider != null)
+            {
+                Gizmos.matrix = Matrix4x4.identity;
+                Gizmos.DrawWireCube(igniteCollider.bounds.center, igniteCollider.bounds.size);
+                return;
+            }
+
+            Gizmos.matrix = Matrix4x4.identity;
+            Gizmos.DrawWireSphere(IgnitePoint.position, igniteRadius);
         }
     }
 }

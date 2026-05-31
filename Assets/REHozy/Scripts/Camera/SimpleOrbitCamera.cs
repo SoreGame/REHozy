@@ -21,12 +21,10 @@ namespace REHozy.Camera
         [Header("Zoom")]
         [SerializeField] private float distance = 8f;
         [SerializeField] private Vector2 distanceLimits = new Vector2(2f, 18f);
-        [SerializeField] private float zoomSensitivity = 2.5f;
         [SerializeField] private float zoomDragSensitivity = 0.02f;
 
         [Header("Input")]
         [SerializeField] private int rotateMouseButton = 1; // 1 = RMB
-        [SerializeField] private bool zoomWithoutButton = true;
 
         private void Reset()
         {
@@ -87,16 +85,6 @@ namespace REHozy.Camera
                 }
             }
 
-            if ((zoomWithoutButton || rotateHeld) && !carryingDecoration)
-            {
-                var scroll = GetScroll();
-                if (Mathf.Abs(scroll) > 0.0001f)
-                {
-                    distance -= scroll * zoomSensitivity;
-                    distance = Mathf.Clamp(distance, distanceLimits.x, distanceLimits.y);
-                }
-            }
-
             var pivot = target.position + targetOffset;
             var rot = Quaternion.Euler(pitch, yaw, 0f);
             var pos = pivot + rot * new Vector3(0f, 0f, -distance);
@@ -128,18 +116,6 @@ namespace REHozy.Camera
             return mouse.delta.ReadValue();
 #else
             return new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
-#endif
-        }
-
-        private static float GetScroll()
-        {
-#if ENABLE_INPUT_SYSTEM
-            var mouse = UnityEngine.InputSystem.Mouse.current;
-            if (mouse == null) return 0f;
-            // scroll.y is typically +/-120 per notch on Windows; normalize.
-            return mouse.scroll.ReadValue().y / 120f;
-#else
-            return Input.mouseScrollDelta.y;
 #endif
         }
     }

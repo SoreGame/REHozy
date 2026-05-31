@@ -8,7 +8,7 @@ namespace REHozy.Camera
 {
     /// <summary>
     /// RMB + mouse X: camera travels on a horizontal arc around the orbit center, always facing it.
-    /// RMB + mouse Y / scroll: zoom (<see cref="CinemachineOrbitalFollow.Radius"/>).
+    /// RMB + mouse Y: zoom (<see cref="CinemachineOrbitalFollow.Radius"/>).
     /// Requires <see cref="CinemachineHardLookAt"/> and a shared follow/look-at target.
     /// </summary>
     [DisallowMultipleComponent]
@@ -28,8 +28,6 @@ namespace REHozy.Camera
         [SerializeField] private bool invertX;
         [Tooltip("World-units per mouse pixel while dragging (scaled by distance to pivot).")]
         [SerializeField] private float zoomDragSensitivity = 0.35f;
-        [SerializeField] private float zoomScrollSensitivity = 12f;
-        [SerializeField] private bool zoomWithoutButton = true;
         [SerializeField] private bool invertY;
 
         [Header("Zoom")]
@@ -213,11 +211,6 @@ namespace REHozy.Camera
 
             var carryingDecoration = DecorationCarrySession.IsCarrying;
 
-            if (!carryingDecoration && (zoomWithoutButton || IsOrbitHeld()))
-            {
-                ApplyScrollZoom();
-            }
-
             var orbitHeld = IsOrbitHeld();
             if (!orbitHeld)
             {
@@ -272,17 +265,6 @@ namespace REHozy.Camera
             }
         }
 
-        private void ApplyScrollZoom()
-        {
-            var scroll = ReadNormalizedScroll();
-            if (Mathf.Abs(scroll) < 0.0001f)
-            {
-                return;
-            }
-
-            ApplyDollyZoom(scroll * zoomScrollSensitivity);
-        }
-
         /// <summary>
         /// Adjusts orbital distance. Positive <paramref name="zoomInAmount"/> = closer.
         /// Only changes <see cref="CinemachineOrbitalFollow.Radius"/> so the rig stays consistent.
@@ -303,17 +285,6 @@ namespace REHozy.Camera
         {
             var maxSqr = maxMagnitude * maxMagnitude;
             return delta.sqrMagnitude <= maxSqr ? delta : delta.normalized * maxMagnitude;
-        }
-
-        private static float ReadNormalizedScroll()
-        {
-            var mouse = Mouse.current;
-            if (mouse == null)
-            {
-                return 0f;
-            }
-
-            return mouse.scroll.ReadValue().y / 120f;
         }
 
         /// <summary>

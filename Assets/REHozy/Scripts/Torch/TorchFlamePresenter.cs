@@ -8,8 +8,14 @@ namespace REHozy.Torch
     {
         [SerializeField] private ParticleSystem[] particles;
         [SerializeField] private Light[] lights;
+        [SerializeField] private Transform lightAnchor;
+        [SerializeField] private TorchFlameLightSettings torchLightSettings = new();
+
+        private Light _spawnedTorchLight;
 
         public bool IsLit { get; private set; }
+
+        private Transform LightAnchor => lightAnchor != null ? lightAnchor : transform;
 
         private void Reset()
         {
@@ -74,14 +80,37 @@ namespace REHozy.Torch
                 }
             }
 
+            if (lit)
+            {
+                _spawnedTorchLight = TorchFlameLightFactory.EnsureLight(LightAnchor, torchLightSettings);
+            }
+
+            if (_spawnedTorchLight != null)
+            {
+                TorchFlameLightFactory.ApplyLightSettings(_spawnedTorchLight, torchLightSettings);
+                _spawnedTorchLight.enabled = lit;
+            }
+
             if (lights != null)
             {
                 foreach (var light in lights)
                 {
-                    if (light != null)
+                    if (light == null || light == _spawnedTorchLight)
                     {
-                        light.enabled = lit;
+                        continue;
                     }
+
+                    if (lit)
+                    {
+                        TorchFlameLightFactory.ApplyLightSettings(light, torchLightSettings);
+                        var volumetric = light.GetComponent<VolumetricAdditionalLight>();
+                        if (volumetric != null)
+                        {
+                            TorchFlameLightFactory.ApplyVolumetricSettings(volumetric, torchLightSettings);
+                        }
+                    }
+
+                    light.enabled = lit;
                 }
             }
         }
