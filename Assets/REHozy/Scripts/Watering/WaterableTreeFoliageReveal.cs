@@ -14,6 +14,8 @@ namespace REHozy.Watering
         private float _reveal01;
         private MaterialPropertyBlock _propertyBlock;
 
+        public bool IsWateringComplete => _reveal01 >= 1f;
+
         private void Awake()
         {
             if (foliageRenderer == null)

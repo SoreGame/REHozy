@@ -271,6 +271,7 @@ namespace REHozy.EditorTools
                 soCarry.FindProperty("targetCamera").objectReferenceValue = cam;
                 soCarry.FindProperty("heightOffset").floatValue = 0.5f;
                 soCarry.FindProperty("enableWorkPose").boolValue = true;
+                soCarry.FindProperty("workPoseOrientation").enumValueIndex = (int)WorkPoseOrientation.TipDownYaw;
                 soCarry.FindProperty("workHeightOffsetDelta").floatValue = -0.1f;
                 soCarry.ApplyModifiedPropertiesWithoutUndo();
             }

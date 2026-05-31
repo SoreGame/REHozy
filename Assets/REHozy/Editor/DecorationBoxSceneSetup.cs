@@ -12,7 +12,7 @@ namespace REHozy.EditorTools
     public static class DecorationBoxSceneSetup
     {
         private const string MenuPath = "REHozy/Setup Decoration Box Test";
-        private const string PrefabFolder = "Assets/REHozy/Prefabs/Decoration";
+        private const int DefaultPropCountPerEntry = 1;
 
         private const string SampleScenePath = "Assets/Scenes/SampleScene.unity";
 
@@ -34,12 +34,15 @@ namespace REHozy.EditorTools
 
         private static void SetupInOpenSceneInternal()
         {
-            EnsurePlaceableLayer();
-            var placeableLayer = LayerMask.NameToLayer("Placeable");
+            PlaceablePropPrefabSetup.EnsurePlaceableLayer();
+            PlaceablePropPrefabSetup.SetupAllPropsInFolder();
+            var propPrefabs = PlaceablePropPrefabSetup.LoadAllPropPrefabs();
 
-            var prefabA = EnsureDecorationPrefab("Decoration_Test_Red", new Color(0.85f, 0.25f, 0.2f), placeableLayer);
-            var prefabB = EnsureDecorationPrefab("Decoration_Test_Green", new Color(0.25f, 0.75f, 0.35f), placeableLayer);
-            var prefabC = EnsureDecorationPrefab("Decoration_Test_Blue", new Color(0.25f, 0.45f, 0.9f), placeableLayer);
+            if (propPrefabs.Length == 0)
+            {
+                Debug.LogWarning($"No prop prefabs found in {PlaceablePropPrefabSetup.PropsFolder}.");
+                return;
+            }
 
             var homePoint = GameObject.Find("HomePoint");
             if (homePoint == null)
@@ -61,16 +64,19 @@ namespace REHozy.EditorTools
             if (box != null)
             {
                 var soBox = new SerializedObject(box);
-                soBox.FindProperty("entries").arraySize = 3;
-                SetEntry(soBox, 0, prefabA, 2);
-                SetEntry(soBox, 1, prefabB, 2);
-                SetEntry(soBox, 2, prefabC, 1);
+                soBox.FindProperty("entries").arraySize = propPrefabs.Length;
+                for (var i = 0; i < propPrefabs.Length; i++)
+                {
+                    SetEntry(soBox, i, propPrefabs[i], DefaultPropCountPerEntry);
+                }
+
                 soBox.ApplyModifiedPropertiesWithoutUndo();
             }
 
             WireDecorationInput();
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("Decoration box test objects created. Short LMB on box spawns a random prop.");
+            Debug.Log(
+                $"Decoration box configured with {propPrefabs.Length} prop prefab(s) from {PlaceablePropPrefabSetup.PropsFolder}. Short LMB on box spawns a random prop.");
             AssetDatabase.SaveAssets();
         }
 
@@ -102,63 +108,6 @@ namespace REHozy.EditorTools
             return box;
         }
 
-        private static GameObject EnsureDecorationPrefab(string prefabName, Color color, int placeableLayer)
-        {
-            if (!AssetDatabase.IsValidFolder(PrefabFolder))
-            {
-                Directory.CreateDirectory(PrefabFolder);
-                AssetDatabase.Refresh();
-            }
-
-            var path = $"{PrefabFolder}/{prefabName}.prefab";
-            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (existing != null)
-            {
-                return existing;
-            }
-
-            var root = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            root.name = prefabName;
-            root.layer = placeableLayer;
-            root.transform.localScale = Vector3.one * 0.35f;
-
-            var renderer = root.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                var shader = Shader.Find("Universal Render Pipeline/Lit")
-                    ?? Shader.Find("Standard");
-                renderer.sharedMaterial = new Material(shader) { color = color };
-            }
-
-            var pivot = new GameObject("PlacementPivot").transform;
-            pivot.SetParent(root.transform, false);
-            pivot.localPosition = new Vector3(0f, -0.5f, 0f);
-
-            var carry = root.AddComponent<CarryableCarryDriver>();
-            var decoration = root.AddComponent<PlaceableDecoration>();
-            root.AddComponent<Rigidbody>().isKinematic = true;
-
-            var cam = UnityEngine.Camera.main;
-            if (cam != null)
-            {
-                var soCarry = new SerializedObject(carry);
-                soCarry.FindProperty("targetCamera").objectReferenceValue = cam;
-                soCarry.FindProperty("heightOffset").floatValue = 0.4f;
-                soCarry.ApplyModifiedPropertiesWithoutUndo();
-            }
-
-            var soDecoration = new SerializedObject(decoration);
-            soDecoration.FindProperty("pickupCollider").objectReferenceValue = root.GetComponent<BoxCollider>();
-            soDecoration.FindProperty("carryDriver").objectReferenceValue = carry;
-            soDecoration.FindProperty("placementPivot").objectReferenceValue = pivot;
-            soDecoration.FindProperty("groundSnapOffset").floatValue = 0f;
-            soDecoration.ApplyModifiedPropertiesWithoutUndo();
-
-            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
-            Object.DestroyImmediate(root);
-            return prefab;
-        }
-
         private static void WireDecorationInput()
         {
             var gameplay = Object.FindFirstObjectByType<CarryableToolInputHandler>();
@@ -180,8 +129,11 @@ namespace REHozy.EditorTools
                 "Assets/InputSystem_Actions.inputactions");
 
             var placeableMask = 1 << LayerMask.NameToLayer("Placeable");
+            var waterableMask = LayerMask.NameToLayer("Waterable") >= 0
+                ? 1 << LayerMask.NameToLayer("Waterable")
+                : 0;
             var defaultMask = 1 << 0;
-            var interactionMask = placeableMask | defaultMask;
+            var interactionMask = placeableMask | waterableMask | defaultMask;
 
             var so = new SerializedObject(handler);
             so.FindProperty("rayCamera").objectReferenceValue = UnityEngine.Camera.main;
@@ -191,37 +143,6 @@ namespace REHozy.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void EnsurePlaceableLayer()
-        {
-            if (LayerMask.NameToLayer("Placeable") >= 0)
-            {
-                return;
-            }
-
-            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
-            if (assets == null || assets.Length == 0)
-            {
-                return;
-            }
-
-            var tagManager = new SerializedObject(assets[0]);
-            var layers = tagManager.FindProperty("layers");
-            for (var i = 8; i < 32; i++)
-            {
-                var slot = layers.GetArrayElementAtIndex(i);
-                if (!string.IsNullOrEmpty(slot.stringValue))
-                {
-                    continue;
-                }
-
-                slot.stringValue = "Placeable";
-                tagManager.ApplyModifiedProperties();
-                Debug.Log("Added layer 'Placeable'.");
-                return;
-            }
-
-            Debug.LogWarning("Could not add Placeable layer — no free user layers.");
-        }
     }
 }
 #endif

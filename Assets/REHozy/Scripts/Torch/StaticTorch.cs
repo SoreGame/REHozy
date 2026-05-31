@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using REHozy.Decoration;
 using REHozy.Rendering;
 using UnityEngine;
 
@@ -17,6 +18,12 @@ namespace REHozy.Torch
         [SerializeField] private float igniteSpeedMultiplier = 1.5f;
         [SerializeField] private bool startLit;
 
+        [Header("Ground snap")]
+        [SerializeField] private bool snapToGroundOnStart;
+        [SerializeField] private Transform baseSnapPivot;
+        [SerializeField] private float groundSnapOffset;
+        [SerializeField] private LayerMask groundMask = ~0;
+
         private float _igniteProgress;
 
         public bool IsLit => flamePresenter != null && flamePresenter.IsLit;
@@ -30,6 +37,14 @@ namespace REHozy.Torch
             flamePoint = transform;
             flamePresenter = GetComponentInChildren<TorchFlamePresenter>(true);
             ResolveIgniteCollider();
+        }
+
+        private void Start()
+        {
+            if (snapToGroundOnStart)
+            {
+                SnapToGroundBelow();
+            }
         }
 
         private void Awake()
@@ -138,6 +153,70 @@ namespace REHozy.Torch
             {
                 igniteCollider = GetComponentInChildren<Collider>(true);
             }
+        }
+
+        public void SnapToGroundBelow()
+        {
+            if (!TryGetBaseLocalOffset(out var baseLocalOffset))
+            {
+                return;
+            }
+
+            if (!DecorationPlacementUtility.TrySampleTopGroundAt(
+                    transform.position, groundMask, transform, out var hit))
+            {
+                return;
+            }
+
+            var normal = hit.normal.sqrMagnitude > 0.0001f ? hit.normal.normalized : Vector3.up;
+            var currentBaseWorld = transform.TransformPoint(baseLocalOffset);
+            var targetBaseWorld = hit.point + normal * groundSnapOffset;
+            transform.position += targetBaseWorld - currentBaseWorld;
+        }
+
+        private bool TryGetBaseLocalOffset(out Vector3 baseLocalOffset)
+        {
+            if (baseSnapPivot != null)
+            {
+                baseLocalOffset = transform.InverseTransformPoint(baseSnapPivot.position);
+                return true;
+            }
+
+            if (TryGetRendererBottomLocalOffset(out baseLocalOffset))
+            {
+                return true;
+            }
+
+            baseLocalOffset = Vector3.zero;
+            return true;
+        }
+
+        private bool TryGetRendererBottomLocalOffset(out Vector3 baseLocalOffset)
+        {
+            baseLocalOffset = Vector3.zero;
+            var minY = float.MaxValue;
+            var found = false;
+            var renderers = GetComponentsInChildren<Renderer>(false);
+
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] is ParticleSystemRenderer)
+                {
+                    continue;
+                }
+
+                minY = Mathf.Min(minY, renderers[i].bounds.min.y);
+                found = true;
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+
+            baseLocalOffset = transform.InverseTransformPoint(
+                new Vector3(transform.position.x, minY, transform.position.z));
+            return true;
         }
 
         private void OnDrawGizmosSelected()

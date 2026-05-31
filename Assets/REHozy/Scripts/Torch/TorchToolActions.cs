@@ -1,3 +1,4 @@
+using REHozy.Audio;
 using REHozy.CarryableTools;
 using UnityEngine;
 
@@ -27,6 +28,8 @@ namespace REHozy.Torch
         private float _fuel01;
         private bool _isLit;
         private bool _returnHoldInProgress;
+        private float _lastRefuelSoundTime = float.NegativeInfinity;
+        private const float RefuelSoundInterval = 0.35f;
         private Vector3 _lastRootPosition;
         private bool _hasLastRootPosition;
 
@@ -207,7 +210,13 @@ namespace REHozy.Torch
             }
 
             var rate = speedMult / Mathf.Max(igniteFromSourceDuration, 0.01f);
+            var previousFuel = _fuel01;
             _fuel01 = Mathf.Clamp01(_fuel01 + deltaTime * rate);
+            if (_fuel01 > previousFuel && Time.time - _lastRefuelSoundTime >= RefuelSoundInterval)
+            {
+                _lastRefuelSoundTime = Time.time;
+                GameAudio.Play(GameSoundId.TorchRefuel, BarWorldAnchor, spatialBlend: 0f);
+            }
         }
 
         private static bool TryGetBestNearbyFireSource(Vector3 tip, out float speedMultiplier)
@@ -298,6 +307,11 @@ namespace REHozy.Torch
 
         private void SetLit(bool lit)
         {
+            if (_isLit == lit)
+            {
+                return;
+            }
+
             _isLit = lit;
             flamePresenter?.SetLit(lit);
         }

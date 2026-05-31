@@ -19,6 +19,8 @@ namespace REHozy
         [SerializeField] private LayerMask groundMask = ~0;
         [Min(0f)]
         [SerializeField] private float groundClearance = 0.02f;
+        [Min(0f)]
+        [SerializeField] private float collisionSkinWidth = FloatingGroundCollision.DefaultSkinWidth;
 
         [Header("Wander")]
         [Min(0.01f)]
@@ -52,7 +54,7 @@ namespace REHozy
         [Tooltip("If empty (0), falls back to GroundMask used for height clamping.")]
         [SerializeField] private LayerMask avoidGroundMask;
         [Min(0f)]
-        [SerializeField] private float avoidGroundRadius = 0.8f;
+        [SerializeField] private float avoidGroundRadius = 1.1f;
         [Min(0f)]
         [SerializeField] private float avoidGroundStrength = 10f;
 
@@ -71,7 +73,20 @@ namespace REHozy
         private float _nextDirChangeTime;
         private bool _hasValidWater;
         private Rigidbody _rb;
+        private float _cachedBottomOffset;
+        private float _cachedProbeRadius;
+        private FloatingGroundCollision.BodyShape _bodyShape;
         private readonly Collider[] _overlapBuffer = new Collider[24];
+
+        public void Configure(LayerMask ground)
+        {
+            groundMask = ground;
+            var groundLayer = LayerMask.NameToLayer("Ground");
+            if (groundLayer >= 0)
+            {
+                groundMask |= 1 << groundLayer;
+            }
+        }
 
         private void Awake()
         {
@@ -83,6 +98,7 @@ namespace REHozy
             }
 
             _anchorWorld = transform.position;
+            CacheColliderMetrics();
             PickNewDesiredDirection(immediate: true);
         }
 
@@ -91,6 +107,8 @@ namespace REHozy
             // When re-enabled (e.g. after being dropped back into water), restart around current position.
             _hasValidWater = false;
             _anchorWorld = transform.position;
+            _velocityXZ = Vector2.zero;
+            CacheColliderMetrics();
 
             if (_rb == null)
             {
@@ -106,6 +124,32 @@ namespace REHozy
             }
 
             _nextDirChangeTime = Time.time + Random.Range(0f, directionChangeInterval);
+
+            SanitizeCurrentPosition();
+        }
+
+        private void SanitizeCurrentPosition()
+        {
+            if (!_bodyShape.IsValid)
+            {
+                return;
+            }
+
+            var pos = transform.position;
+            FloatingGroundCollision.SanitizePosition(ref pos, transform.rotation, _bodyShape, groundMask);
+            ApplyPosition(pos);
+        }
+
+        private void ApplyPosition(Vector3 worldPos)
+        {
+            if (_rb != null && driveViaRigidbodyIfPresent)
+            {
+                _rb.MovePosition(worldPos);
+            }
+            else
+            {
+                transform.position = worldPos;
+            }
         }
 
         private void Update()
@@ -177,64 +221,93 @@ namespace REHozy
             _velocityXZ += force * dt;
             _velocityXZ = Vector2.ClampMagnitude(_velocityXZ, maxSpeed);
 
-            // Apply motion with water constraint.
+            // Apply motion with water + hard ground collision.
             var newPos = pos;
-            if (!TryApplyWaterConstrainedStep(pos, dt, ref newPos))
+            if (!TryApplyConstrainedStep(pos, dt, ref newPos))
             {
-                // Fallback: push towards anchor if we're stuck at the shore.
-                var back = new Vector2(_anchorWorld.x - pos.x, _anchorWorld.z - pos.z);
-                if (back.sqrMagnitude > 0.0001f)
-                {
-                    back.Normalize();
-                    _velocityXZ = back * Mathf.Min(maxSpeed, 1.25f * maxSpeed);
-                }
-                else
-                {
-                    _velocityXZ = Vector2.zero;
-                }
-
-                TryApplyWaterConstrainedStep(pos, dt, ref newPos);
+                DeflectVelocityAtShore(pos);
+                TryApplyConstrainedStep(pos, dt, ref newPos);
             }
 
-            // Hard clamp: never leave the allowed radius (prevents drifting outside due to soft steering).
             newPos = ClampToAnchorRadius(newPos);
 
             if (applyWaterHeight)
             {
-                var targetY = newPos.y;
-
-                if (Decoration.DecorationPlacementUtility.TryGetWaterSurfaceY(newPos, out var waterY))
-                {
-                    targetY = waterY;
-                }
-
-                // If terrain/shore is above the water in this XZ, don't allow the object to be under it.
-                if (WaterCarryClamp.TryGetHighestGroundY(newPos, groundMask, out var groundY))
-                {
-                    targetY = Mathf.Max(targetY, groundY + groundClearance);
-                }
-
-                var y = Mathf.Lerp(newPos.y, targetY, 1f - Mathf.Exp(-waterHeightSnapSpeed * dt));
-                newPos = new Vector3(newPos.x, y, newPos.z);
+                newPos.y = ResolveFloatingHeight(newPos, dt);
             }
 
-            if (_rb != null && driveViaRigidbodyIfPresent)
+            EnforceHardGroundCollision(pos, ref newPos);
+
+            ApplyPosition(newPos);
+        }
+
+        private void EnforceHardGroundCollision(Vector3 previousPos, ref Vector3 worldPos)
+        {
+            if (!_bodyShape.IsValid)
             {
-                _rb.MovePosition(newPos);
+                return;
             }
-            else
+
+            FloatingGroundCollision.SanitizePosition(ref worldPos, transform.rotation, _bodyShape, groundMask);
+
+            if (FloatingGroundCollision.HasGroundOverlap(worldPos, transform.rotation, _bodyShape, groundMask))
             {
-                transform.position = newPos;
+                worldPos = previousPos;
+                _velocityXZ *= 0.15f;
+                FloatingGroundCollision.SanitizePosition(ref worldPos, transform.rotation, _bodyShape, groundMask);
             }
         }
 
+        private float ResolveFloatingHeight(Vector3 worldPos, float dt)
+        {
+            var floorY = worldPos.y - _cachedBottomOffset;
+
+            if (Decoration.DecorationPlacementUtility.TryGetWaterSurfaceY(worldPos, out var waterY))
+            {
+                floorY = Mathf.Max(floorY, waterY);
+            }
+
+            if (WaterCarryClamp.TryGetHighestGroundY(worldPos, groundMask, GetGroundProbeRadius(), out var groundY))
+            {
+                floorY = Mathf.Max(floorY, groundY + groundClearance);
+            }
+
+            var targetY = floorY + _cachedBottomOffset;
+            return Mathf.Lerp(worldPos.y, targetY, 1f - Mathf.Exp(-waterHeightSnapSpeed * dt));
+        }
+
+        private void CacheColliderMetrics()
+        {
+            FloatingGroundCollision.TryCreateBodyShape(transform, collisionSkinWidth, out _bodyShape);
+
+            var col = _bodyShape.Collider;
+            if (col == null || !col.enabled)
+            {
+                _cachedBottomOffset = 0f;
+                _cachedProbeRadius = Mathf.Max(avoidGroundRadius, WaterCarryClamp.DefaultGroundProbeRadius);
+                return;
+            }
+
+            _cachedBottomOffset = transform.position.y - col.bounds.min.y;
+            var extents = col.bounds.extents;
+            _cachedProbeRadius = Mathf.Max(
+                avoidGroundRadius,
+                Mathf.Max(extents.x, extents.z) * 0.9f + collisionSkinWidth);
+        }
+
+        private float GetGroundProbeRadius() =>
+            _cachedProbeRadius > 0f
+                ? _cachedProbeRadius
+                : Mathf.Max(avoidGroundRadius, WaterCarryClamp.DefaultGroundProbeRadius);
+
         private void PickNewDesiredDirection(bool immediate)
         {
-            var rnd = Random.insideUnitCircle;
+            var rnd = PickSafeWanderDirection();
             if (rnd.sqrMagnitude < 0.0001f)
             {
                 rnd = Vector2.right;
             }
+
             rnd.Normalize();
 
             if (immediate)
@@ -251,6 +324,127 @@ namespace REHozy
             else
             {
                 _desiredDir.Normalize();
+            }
+
+            if (_velocityXZ.sqrMagnitude > 0.0004f)
+            {
+                var speed = _velocityXZ.magnitude;
+                _velocityXZ = Vector2.Lerp(_velocityXZ.normalized, _desiredDir, 0.25f).normalized * speed;
+            }
+        }
+
+        private Vector2 PickSafeWanderDirection()
+        {
+            var pos = transform.position;
+            var bestDir = Random.insideUnitCircle;
+            var bestScore = -1f;
+
+            for (var i = 0; i < 10; i++)
+            {
+                var candidate = Random.insideUnitCircle;
+                if (candidate.sqrMagnitude < 0.0001f)
+                {
+                    continue;
+                }
+
+                candidate.Normalize();
+                if (!IsDirectionSafeFrom(pos, candidate))
+                {
+                    continue;
+                }
+
+                var score = Vector2.Dot(candidate, _desiredDir);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestDir = candidate;
+                }
+            }
+
+            if (bestScore >= 0f)
+            {
+                return bestDir;
+            }
+
+            var tangent = new Vector2(-_desiredDir.y, _desiredDir.x);
+            if (Random.value < 0.5f)
+            {
+                tangent = -tangent;
+            }
+
+            return IsDirectionSafeFrom(pos, tangent) ? tangent : -_desiredDir;
+        }
+
+        private bool IsDirectionSafeFrom(Vector3 pos, Vector2 dir)
+        {
+            if (dir.sqrMagnitude < 0.0001f)
+            {
+                return false;
+            }
+
+            dir.Normalize();
+            var probeDist = Mathf.Max(0.35f, shoreAvoidProbeDistance * 0.45f);
+            var probePos = new Vector3(pos.x + dir.x * probeDist, pos.y, pos.z + dir.y * probeDist);
+            return IsSafeWaterPosition(probePos);
+        }
+
+        private void DeflectVelocityAtShore(Vector3 pos)
+        {
+            if (_velocityXZ.sqrMagnitude < 0.000001f)
+            {
+                return;
+            }
+
+            var speed = _velocityXZ.magnitude;
+            var moveDir = _velocityXZ / speed;
+            var left = new Vector2(-moveDir.y, moveDir.x);
+            var stepDist = Mathf.Max(maxSpeed * Time.deltaTime, 0.05f);
+
+            Vector2 bestDir = Vector2.zero;
+            var bestScore = -2f;
+
+            TrySlideDirection(pos, left, stepDist, ref bestDir, ref bestScore);
+            TrySlideDirection(pos, -left, stepDist, ref bestDir, ref bestScore);
+
+            var toAnchor = new Vector2(_anchorWorld.x - pos.x, _anchorWorld.z - pos.z);
+            if (toAnchor.sqrMagnitude > 0.0001f)
+            {
+                TrySlideDirection(pos, toAnchor.normalized, stepDist, ref bestDir, ref bestScore);
+            }
+
+            if (bestScore > -0.25f)
+            {
+                _velocityXZ = bestDir * speed * 0.8f;
+                return;
+            }
+
+            _velocityXZ *= 0.2f;
+        }
+
+        private void TrySlideDirection(
+            Vector3 pos,
+            Vector2 dir,
+            float stepDist,
+            ref Vector2 bestDir,
+            ref float bestScore)
+        {
+            if (dir.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            dir.Normalize();
+            var probe = new Vector3(pos.x + dir.x * stepDist, pos.y, pos.z + dir.y * stepDist);
+            if (!IsSafeWaterPosition(probe))
+            {
+                return;
+            }
+
+            var score = Vector2.Dot(dir, _velocityXZ.normalized);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestDir = dir;
             }
         }
 
@@ -421,7 +615,7 @@ namespace REHozy
             }
         }
 
-        private bool TryApplyWaterConstrainedStep(Vector3 from, float dt, ref Vector3 to)
+        private bool TryApplyConstrainedStep(Vector3 from, float dt, ref Vector3 to)
         {
             if (_velocityXZ.sqrMagnitude < 0.000001f || dt <= 0f)
             {
@@ -431,30 +625,55 @@ namespace REHozy
 
             var step = new Vector3(_velocityXZ.x, 0f, _velocityXZ.y) * dt;
 
-            // Try a few scaled-down steps before giving up.
-            for (var i = 0; i < 5; i++)
+            for (var i = 0; i < 8; i++)
             {
-                var t = 1f - i * 0.2f;
+                var t = 1f - i * 0.125f;
                 var candidate = from + step * t;
 
-                if (IsSafeWaterPosition(candidate))
+                if (!IsSafeWaterPosition(candidate))
+                {
+                    continue;
+                }
+
+                if (_bodyShape.IsValid)
+                {
+                    if (FloatingGroundCollision.TryAdvancePosition(
+                            from,
+                            candidate,
+                            transform.rotation,
+                            _bodyShape,
+                            groundMask,
+                            out var cleared))
+                    {
+                        to = cleared;
+                        return true;
+                    }
+                }
+                else
                 {
                     to = candidate;
                     return true;
                 }
             }
 
-            // Hard fail: reflect velocity away from the invalid direction.
-            _velocityXZ = -_velocityXZ * 0.35f;
             to = from;
             return false;
         }
 
         private bool IsSafeWaterPosition(Vector3 worldPos)
         {
-            // Safe water means: there is water at this XZ AND ground isn't above the water surface.
-            // This prevents moving under shore meshes when the water volume extends beneath the land.
-            return WaterCarryClamp.ShouldUseWaterSurfaceAt(worldPos, groundMask, out _);
+            if (!WaterCarryClamp.ShouldUseWaterSurfaceAt(worldPos, groundMask, GetGroundProbeRadius(), out _))
+            {
+                return false;
+            }
+
+            if (_bodyShape.IsValid
+                && FloatingGroundCollision.HasGroundOverlap(worldPos, transform.rotation, _bodyShape, groundMask))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private Vector3 ClampToAnchorRadius(Vector3 worldPos)

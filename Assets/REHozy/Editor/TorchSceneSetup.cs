@@ -732,15 +732,14 @@ namespace REHozy.EditorTools
 
                 instance.transform.position = campfireApprox + offsets[i];
 
-                if (i == 0)
+                var staticTorch = instance.GetComponent<StaticTorch>();
+                staticTorch?.SnapToGroundBelow();
+
+                if (i == 0 && staticTorch != null)
                 {
-                    var staticTorch = instance.GetComponent<StaticTorch>();
-                    if (staticTorch != null)
-                    {
-                        var so = new SerializedObject(staticTorch);
-                        so.FindProperty("startLit").boolValue = true;
-                        so.ApplyModifiedPropertiesWithoutUndo();
-                    }
+                    var so = new SerializedObject(staticTorch);
+                    so.FindProperty("startLit").boolValue = true;
+                    so.ApplyModifiedPropertiesWithoutUndo();
                 }
             }
         }

@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace REHozy.Decoration
 {
+    [DefaultExecutionOrder(-200)]
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Decoration/Decoration Input Handler")]
     public sealed class DecorationInputHandler : MonoBehaviour
@@ -17,32 +18,58 @@ namespace REHozy.Decoration
         [SerializeField] private float clickMaxDuration = 0.25f;
         [SerializeField] private bool useMouseButtonFallback = true;
 
+        [Header("Carry rotation")]
+        [SerializeField] private float scrollYawDegreesPerNotch = 5f;
+
         private InputAction _attack;
         private InputActionMap _playerMap;
+        private InputAction _uiScrollAction;
+        private InputAction _decorationScrollAction;
         private float _pressStartTime;
         private bool _clickConsumed;
+        private float _queuedScrollYaw;
+        private int _lastScrollFrame = -1;
 
         private void Awake()
         {
             ResolveInputActions();
+            ResolveDecorationScrollAction();
         }
 
         private void OnEnable()
         {
+            UnityEngine.InputSystem.InputSystem.onBeforeUpdate += QueueScrollBeforeInputUpdate;
             _playerMap?.Enable();
             _attack?.Enable();
+            _decorationScrollAction?.Enable();
         }
 
         private void OnDisable()
         {
+            UnityEngine.InputSystem.InputSystem.onBeforeUpdate -= QueueScrollBeforeInputUpdate;
             _attack?.Disable();
             _playerMap?.Disable();
+            _decorationScrollAction?.Disable();
+            _queuedScrollYaw = 0f;
+        }
+
+        private void OnDestroy()
+        {
+            if (_decorationScrollAction == null)
+            {
+                return;
+            }
+
+            _decorationScrollAction.performed -= OnDecorationScrollPerformed;
+            _decorationScrollAction.Dispose();
+            _decorationScrollAction = null;
         }
 
         private void Update()
         {
             if (REHozy.GameplayUiLock.IsActive)
             {
+                _queuedScrollYaw = 0f;
                 return;
             }
 
@@ -51,6 +78,8 @@ namespace REHozy.Decoration
                 UpdateWhileCarrying();
                 return;
             }
+
+            _queuedScrollYaw = 0f;
 
             if (DecorationGameplayLock.IsAnyToolOccupyingHands())
             {
@@ -65,12 +94,70 @@ namespace REHozy.Decoration
             UpdateWhileIdle();
         }
 
+        private void ResolveDecorationScrollAction()
+        {
+            _decorationScrollAction = new InputAction(
+                name: "DecorationScrollRotate",
+                type: InputActionType.Value,
+                expectedControlType: "Vector2");
+            _decorationScrollAction.AddBinding("<Mouse>/scroll");
+            _decorationScrollAction.performed += OnDecorationScrollPerformed;
+        }
+
+        private void OnDecorationScrollPerformed(InputAction.CallbackContext context)
+        {
+            if (!DecorationCarrySession.IsCarrying || REHozy.GameplayUiLock.IsActive)
+            {
+                return;
+            }
+
+            var scrollY = context.ReadValue<Vector2>().y;
+            QueueScrollYaw(scrollY);
+        }
+
+        private void QueueScrollBeforeInputUpdate()
+        {
+            if (!DecorationCarrySession.IsCarrying || REHozy.GameplayUiLock.IsActive)
+            {
+                return;
+            }
+
+            if (!TryReadScrollY(out var scrollY))
+            {
+                return;
+            }
+
+            QueueScrollYaw(scrollY);
+        }
+
+        private void QueueScrollYaw(float scrollY)
+        {
+            if (Mathf.Abs(scrollY) < 0.001f)
+            {
+                return;
+            }
+
+            if (_lastScrollFrame == Time.frameCount)
+            {
+                return;
+            }
+
+            _lastScrollFrame = Time.frameCount;
+            _queuedScrollYaw += Mathf.Sign(scrollY) * scrollYawDegreesPerNotch;
+        }
+
         private void UpdateWhileCarrying()
         {
             var active = DecorationCarrySession.Active;
             if (active == null)
             {
                 return;
+            }
+
+            if (Mathf.Abs(_queuedScrollYaw) > Mathf.Epsilon)
+            {
+                active.AddCarryYawDegrees(_queuedScrollYaw);
+                _queuedScrollYaw = 0f;
             }
 
             var cam = ResolveCamera();
@@ -231,7 +318,12 @@ namespace REHozy.Decoration
             if (attackAction != null && attackAction.action != null)
             {
                 _attack = attackAction.action;
-                return;
+            }
+            else if (inputActionsFallback != null)
+            {
+                _playerMap = inputActionsFallback.FindActionMap("Player", false);
+                _playerMap?.Enable();
+                _attack = _playerMap?.FindAction("Attack", false);
             }
 
             if (inputActionsFallback == null)
@@ -239,9 +331,36 @@ namespace REHozy.Decoration
                 return;
             }
 
-            _playerMap = inputActionsFallback.FindActionMap("Player", false);
-            _playerMap?.Enable();
-            _attack = _playerMap?.FindAction("Attack", false);
+            var uiMap = inputActionsFallback.FindActionMap("UI", false);
+            _uiScrollAction = uiMap?.FindAction("ScrollWheel", false);
+        }
+
+        private bool TryReadScrollY(out float scrollY)
+        {
+            scrollY = 0f;
+
+            var mouse = Mouse.current;
+            if (mouse != null)
+            {
+                var deviceScrollY = mouse.scroll.ReadValue().y;
+                if (Mathf.Abs(deviceScrollY) >= 0.001f)
+                {
+                    scrollY = deviceScrollY;
+                    return true;
+                }
+            }
+
+            if (_uiScrollAction != null && _uiScrollAction.WasPerformedThisFrame())
+            {
+                var actionScrollY = _uiScrollAction.ReadValue<Vector2>().y;
+                if (Mathf.Abs(actionScrollY) >= 0.001f)
+                {
+                    scrollY = actionScrollY;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool WasAttackPressedThisFrame()
@@ -265,6 +384,5 @@ namespace REHozy.Decoration
             return useMouseButtonFallback && Mouse.current != null
                 && Mouse.current.leftButton.wasReleasedThisFrame;
         }
-
     }
 }

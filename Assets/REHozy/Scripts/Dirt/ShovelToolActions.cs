@@ -1,3 +1,4 @@
+using REHozy.Audio;
 using REHozy.CarryableTools;
 using UnityEngine;
 
@@ -19,7 +20,11 @@ namespace REHozy.Dirt
         private static readonly RaycastHit[] RaycastHits = new RaycastHit[32];
         private static readonly DirtDeformPatch[] PatchScratch = new DirtDeformPatch[8];
 
+        private const float DigHitInterval = 0.2f;
+
         private bool _digAimActive;
+        private bool _digLoopActive;
+        private float _lastDigHitTime = float.NegativeInfinity;
         private Vector3 _lastDigAnchor;
         private bool _hasLastDigAnchor;
 
@@ -74,6 +79,7 @@ namespace REHozy.Dirt
             {
                 tool.CarryDriver?.SetWorkPoseActive(false);
                 ReleaseDigAim();
+                StopDigAudio();
                 return;
             }
 
@@ -81,11 +87,13 @@ namespace REHozy.Dirt
             {
                 tool.CarryDriver?.SetWorkPoseActive(false);
                 ReleaseDigAim();
+                StopDigAudio();
                 return;
             }
 
             tool.CarryDriver?.SetWorkPoseActive(true);
             _digAimActive = true;
+            StartDigAudio(tool.Tip.position);
             DigAtTip(tool);
         }
 
@@ -93,6 +101,27 @@ namespace REHozy.Dirt
         {
             _digAimActive = false;
             _hasLastDigAnchor = false;
+        }
+
+        private void StartDigAudio(Vector3 worldPosition)
+        {
+            if (!_digLoopActive)
+            {
+                _digLoopActive = true;
+            }
+
+            GameAudio.StartLoop(GameSoundId.ShovelDigLoop, worldPosition);
+        }
+
+        private void StopDigAudio()
+        {
+            if (!_digLoopActive)
+            {
+                return;
+            }
+
+            _digLoopActive = false;
+            GameAudio.StopLoop(GameSoundId.ShovelDigLoop);
         }
 
         private void DigAtTip(CarryableToolCore tool)
@@ -126,6 +155,12 @@ namespace REHozy.Dirt
                 }
 
                 patch.TryErodeAtWorld(digPoint, digRadius, digStrength);
+            }
+
+            if (Time.time - _lastDigHitTime >= DigHitInterval)
+            {
+                _lastDigHitTime = Time.time;
+                GameAudio.Play(GameSoundId.ShovelDigHit, digPoint);
             }
         }
 

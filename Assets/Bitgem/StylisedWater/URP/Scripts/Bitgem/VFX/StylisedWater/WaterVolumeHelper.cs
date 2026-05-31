@@ -1,4 +1,4 @@
-﻿#region Using statements
+#region Using statements
 
 using System.Collections;
 using System.Collections.Generic;
@@ -35,14 +35,14 @@ namespace Bitgem.VFX.StylisedWater
             // ensure a water volume
             if (!WaterVolume)
             {
-                return 0f;
+                return null;
             }
 
             // ensure a material
             var renderer = WaterVolume.gameObject.GetComponent<MeshRenderer>();
             if (!renderer || !renderer.sharedMaterial)
             {
-                return 0f;
+                return null;
             }
 
             // replicate the shader logic, using parameters pulled from the specific material, to return the height at the specified position

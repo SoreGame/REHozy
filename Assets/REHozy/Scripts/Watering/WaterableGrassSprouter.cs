@@ -17,6 +17,15 @@ namespace REHozy.Watering
         private readonly List<Transform> _spawned = new();
         private float _spawnProgress;
 
+        public bool IsWateringComplete
+        {
+            get
+            {
+                PruneDestroyed();
+                return _spawned.Count >= maxBlades;
+            }
+        }
+
         public void TryWater(Vector3 waterPoint, float amount, float deltaTime)
         {
             PruneDestroyed();

@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace REHozy.Watering
 {
+    [DefaultExecutionOrder(-50)]
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Watering/Waterable Bush Grow")]
     public sealed class WaterableBushGrow : MonoBehaviour, IWaterable
@@ -12,6 +13,8 @@ namespace REHozy.Watering
         [SerializeField] private float growthSpeed = 0.35f;
 
         private float _growth01;
+
+        public bool IsWateringComplete => _growth01 >= 1f;
 
         private void Awake()
         {

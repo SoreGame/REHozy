@@ -258,8 +258,6 @@ namespace REHozy.CarryableTools
 
         private void UpdateCarriedInput()
         {
-            tool.TickCarried();
-
             if (tool.State != CarryableToolState.Carried)
             {
                 ClearReturnHoldProgress();
@@ -272,7 +270,9 @@ namespace REHozy.CarryableTools
                 _holdActionTriggered = false;
             }
 
-            if (IsAttackPressed() && !_holdActionTriggered)
+            var attackHeld = IsAttackPressed();
+
+            if (attackHeld && !_holdActionTriggered)
             {
                 var held = Time.time - _pressStartTime;
                 var duration = Mathf.Max(tool.DropHoldDuration, 0.01f);
@@ -301,16 +301,16 @@ namespace REHozy.CarryableTools
                     }
                 }
 
-                var attackHeldDuringHold = IsAttackPressed();
-                var returnHoldDuringHold = attackHeldDuringHold && !_holdActionTriggered && tool.IsInHomeZone();
-                _carriedUpdate?.OnCarriedUpdate(tool, attackHeldDuringHold, returnHoldDuringHold);
+                var returnHoldDuringHold = attackHeld && !_holdActionTriggered && inHome;
+                _carriedUpdate?.OnCarriedUpdate(tool, attackHeld, returnHoldDuringHold);
+                tool.TickCarried();
                 return;
             }
 
             ClearReturnHoldProgress();
 
-            var attackHeld = IsAttackPressed();
             _carriedUpdate?.OnCarriedUpdate(tool, attackHeld, returnHoldInProgress: false);
+            tool.TickCarried();
 
             if (WasAttackReleasedThisFrame() && !_holdActionTriggered)
             {

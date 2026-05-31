@@ -536,6 +536,7 @@ MonoBehaviour:
   - {fileID: 7518938298396184218}
   - {fileID: -1410297666881709256}
   - {fileID: -8700339064382680967}
+  - {fileID: 7368336412610703635}
 --- !u!114 &853819529557874667
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -965,6 +966,86 @@ MonoBehaviour:
   rounded:
     m_OverrideState: 1
     m_Value: 0
+--- !u!114 &7368336412610703635
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a5f3b2c4d6e7f8091a2b3c4d5e6f708, type: 3}
+  m_Name: ColorSpreadVolume
+  m_EditorClassIdentifier: REHozy.Rendering::REHozy.Rendering.ColorSpreadVolume
+  active: 1
+  step:
+    m_OverrideState: 1
+    m_Value: 0
+  previousStep:
+    m_OverrideState: 1
+    m_Value: 0
+  unlockedMask:
+    m_OverrideState: 1
+    m_Value: 0
+  previousMask:
+    m_OverrideState: 1
+    m_Value: 0
+  waveAddMask:
+    m_OverrideState: 1
+    m_Value: 0
+  center:
+    m_OverrideState: 1
+    m_Value: {x: 0, y: 0, z: 0}
+  startTime:
+    m_OverrideState: 1
+    m_Value: 0
+  growthSpeed:
+    m_OverrideState: 1
+    m_Value: 12
+  maxRadius:
+    m_OverrideState: 1
+    m_Value: 80
+  edgeSoftness:
+    m_OverrideState: 1
+    m_Value: 4
+  noiseScale:
+    m_OverrideState: 1
+    m_Value: 0.05
+  noiseStrength:
+    m_OverrideState: 1
+    m_Value: 6
+  noiseTexture:
+    m_OverrideState: 1
+    m_Value: {fileID: 0}
+    dimension: 1
+  redHueRangeA:
+    m_OverrideState: 1
+    m_Value: {x: 0, y: 0.08, z: 0, w: 0}
+  redHueRangeB:
+    m_OverrideState: 1
+    m_Value: {x: 0.92, y: 1, z: 0, w: 0}
+  blueHueRangeA:
+    m_OverrideState: 1
+    m_Value: {x: 0.52, y: 0.68, z: 0, w: 0}
+  blueHueRangeB:
+    m_OverrideState: 1
+    m_Value: {x: 0.52, y: 0.68, z: 0, w: 0}
+  greenHueRangeA:
+    m_OverrideState: 1
+    m_Value: {x: 0.28, y: 0.45, z: 0, w: 0}
+  greenHueRangeB:
+    m_OverrideState: 1
+    m_Value: {x: 0.28, y: 0.45, z: 0, w: 0}
+  waveEdgeIntensity:
+    m_OverrideState: 1
+    m_Value: 0.75
+  waveEdgeWidth:
+    m_OverrideState: 1
+    m_Value: 2.5
+  waveEdgeColor:
+    m_OverrideState: 1
+    m_Value: {r: 1, g: 0.95, b: 0.75, a: 1}
 --- !u!114 &7518938298396184218
 MonoBehaviour:
   m_ObjectHideFlags: 3

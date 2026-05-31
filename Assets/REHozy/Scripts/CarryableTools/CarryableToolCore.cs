@@ -1,4 +1,5 @@
 using System.Collections;
+using REHozy.Audio;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -161,6 +162,7 @@ namespace REHozy.CarryableTools
             carryDriver?.ResetCarryMotion(transform.position);
             SetPickupColliderEnabled(false);
             SetCursorVisible(false);
+            GameAudio.Play(GameSoundId.ToolPickup, transform.position);
         }
 
         public void TickCarried()
@@ -258,6 +260,7 @@ namespace REHozy.CarryableTools
         {
             transform.SetPositionAndRotation(_startPose.position, _startPose.rotation);
             _groundRestPose = _startPose;
+            GameAudio.Play(GameSoundId.ToolReturnHome, transform.position);
             ApplyOnGround();
         }
 
