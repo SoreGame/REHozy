@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using REHozy.CarryableTools;
+using REHozy.Rendering;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -146,6 +147,7 @@ public class QuestModel : MonoBehaviour
     private IEnumerator RunQuestStart(QuestStateInfo state)
     {
         yield return ApplyWorldEffects(state.worldOnStart, animated: true);
+        RefreshColorSpreadExempt();
         state.OnStart.Invoke();
         _worldRoutine = null;
     }
@@ -153,6 +155,7 @@ public class QuestModel : MonoBehaviour
     private IEnumerator RunQuestFinish(QuestStateInfo state)
     {
         yield return ApplyWorldEffects(state.worldOnFinish, animated: true);
+        RefreshColorSpreadExempt();
         state.OnFinish.Invoke();
         _worldRoutine = null;
     }
@@ -190,6 +193,8 @@ public class QuestModel : MonoBehaviour
                 foundFirstUnfinished = true;
             }
         }
+
+        RefreshColorSpreadExempt();
     }
 
     private void HandleInterrupt(QuestData _) => RebuildWorldState();
@@ -216,7 +221,7 @@ public class QuestModel : MonoBehaviour
 
     private static void ApplyPreStartInstant(QuestWorldEffects effects)
     {
-        SetObjectsVisible(effects.show, visible: true, instant: true);
+        SetObjectsVisible(effects.show, visible: true, instant: true, colorSpreadExempt: true);
         SetObjectsVisible(effects.hide, visible: false, instant: true);
         if (effects.switchToolMode)
         {
@@ -227,10 +232,77 @@ public class QuestModel : MonoBehaviour
     private static void ApplyWorldEffectsInstant(QuestWorldEffects effects)
     {
         SetObjectsVisible(effects.hide, visible: false, instant: true);
-        SetObjectsVisible(effects.show, visible: true, instant: true);
+        SetObjectsVisible(effects.show, visible: true, instant: true, colorSpreadExempt: true);
         if (effects.switchToolMode)
         {
             ApplyToolMode(effects.toolMode);
+        }
+    }
+
+    private void RefreshColorSpreadExempt()
+    {
+        ColorSpreadExemptRegistry.Clear();
+        var foundFirstUnfinished = false;
+
+        foreach (var state in _questsEvents)
+        {
+            if (state?.Quest == null)
+            {
+                continue;
+            }
+
+            var data = GetQuest(state.Quest.QuestId);
+            if (data == null || data.finished)
+            {
+                continue;
+            }
+
+            var includeShow = data.active;
+            if (!includeShow && !foundFirstUnfinished)
+            {
+                includeShow = true;
+                foundFirstUnfinished = true;
+            }
+
+            if (!includeShow)
+            {
+                continue;
+            }
+
+            RegisterShowExempt(state.worldOnStart.show);
+        }
+    }
+
+    private static void RegisterShowExempt(GameObject[] objects)
+    {
+        if (objects == null)
+        {
+            return;
+        }
+
+        foreach (var go in objects)
+        {
+            if (go != null && go.activeInHierarchy)
+            {
+                ColorSpreadExemptRegistry.Register(go);
+            }
+        }
+    }
+
+    private static void SetShowExempt(GameObject go, bool exempt)
+    {
+        if (go == null)
+        {
+            return;
+        }
+
+        if (exempt)
+        {
+            ColorSpreadExemptRegistry.Register(go);
+        }
+        else
+        {
+            ColorSpreadExemptRegistry.Unregister(go);
         }
     }
 
@@ -243,14 +315,18 @@ public class QuestModel : MonoBehaviour
         }
 
         yield return SetObjectsVisibleCoroutine(effects.hide, visible: false);
-        yield return SetObjectsVisibleCoroutine(effects.show, visible: true);
+        yield return SetObjectsVisibleCoroutine(effects.show, visible: true, colorSpreadExempt: true);
         if (effects.switchToolMode)
         {
             ApplyToolMode(effects.toolMode);
         }
     }
 
-    private static void SetObjectsVisible(GameObject[] objects, bool visible, bool instant)
+    private static void SetObjectsVisible(
+        GameObject[] objects,
+        bool visible,
+        bool instant,
+        bool colorSpreadExempt = false)
     {
         if (objects == null || !instant)
         {
@@ -278,10 +354,18 @@ public class QuestModel : MonoBehaviour
             {
                 transition.ApplyInstantHidden();
             }
+
+            if (colorSpreadExempt)
+            {
+                SetShowExempt(go, visible);
+            }
         }
     }
 
-    private static IEnumerator SetObjectsVisibleCoroutine(GameObject[] objects, bool visible)
+    private static IEnumerator SetObjectsVisibleCoroutine(
+        GameObject[] objects,
+        bool visible,
+        bool colorSpreadExempt = false)
     {
         if (objects == null || objects.Length == 0)
         {
@@ -305,10 +389,23 @@ public class QuestModel : MonoBehaviour
             pending++;
             if (visible)
             {
-                transition.PlayShow(() => pending--);
+                transition.PlayShow(() =>
+                {
+                    if (colorSpreadExempt)
+                    {
+                        SetShowExempt(go, true);
+                    }
+
+                    pending--;
+                });
             }
             else
             {
+                if (colorSpreadExempt)
+                {
+                    SetShowExempt(go, false);
+                }
+
                 transition.PlayHide(() => pending--);
             }
         }

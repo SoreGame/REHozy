@@ -87,6 +87,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: REHozy.Rendering::REHozy.Rendering.ColorSpreadRendererFeature
   m_Active: 1
   shader: {fileID: 4800000, guid: df0a8192e3f415263748596061728394, type: 3}
+  exemptMaskShader: {fileID: 4800000, guid: 7334f2bfce93b03a2b0d5909810a2994, type: 3}
   injectionPoint: 600
 --- !u!114 &7833122117494664109
 MonoBehaviour:

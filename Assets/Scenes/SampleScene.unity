@@ -5142,6 +5142,18 @@ MonoBehaviour:
             m_StringArgument: 
             m_BoolArgument: 0
           m_CallState: 2
+        - m_Target: {fileID: 1999900303}
+          m_TargetAssemblyTypeName: REHozy.Audio.GameAudioController, Assembly-CSharp
+          m_MethodName: StopRainLoop
+          m_Mode: 4
+          m_Arguments:
+            m_ObjectArgument: {fileID: 0}
+            m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+            m_IntArgument: 0
+            m_FloatArgument: 0
+            m_StringArgument: 
+            m_BoolArgument: 0
+          m_CallState: 2
   - Quest: {fileID: 11400000, guid: 80207ccff00d0e249ae714c15ef8b314, type: 2}
     worldOnStart:
       show:
@@ -25358,6 +25370,8 @@ MonoBehaviour:
   ambientGroup: {fileID: 0}
   weatherGroup: {fileID: 0}
   sfxGroup: {fileID: 0}
+  preloadCatalogOnAwake: 1
+  warmupSfxPoolOnStart: 1
   playAmbientOnStart: 1
   rainEnabledOnStart: 1
   oneShotPoolSize: 8

@@ -12,6 +12,7 @@ namespace REHozy.Editor
         const string RendererPath = "Assets/Settings/PC_Renderer.asset";
         const string SettingsPath = "Assets/REHozy/Settings/ColorSpreadSettings.asset";
         const string ShaderPath = "Assets/REHozy/Shaders/PostProcessing/ColorSpread.shader";
+        const string ExemptMaskShaderPath = "Assets/REHozy/Shaders/PostProcessing/ColorSpreadExemptMask.shader";
 
         [MenuItem("REHozy/Setup Color Spread")]
         public static void Setup()
@@ -95,6 +96,13 @@ namespace REHozy.Editor
                 return;
             }
 
+            var exemptMaskShader = AssetDatabase.LoadAssetAtPath<Shader>(ExemptMaskShaderPath);
+            if (exemptMaskShader == null)
+            {
+                Debug.LogError($"Shader not found at {ExemptMaskShaderPath}");
+                return;
+            }
+
             foreach (var feature in rendererData.rendererFeatures)
             {
                 if (feature is ColorSpreadRendererFeature existing)
@@ -103,6 +111,7 @@ namespace REHozy.Editor
                     {
                         var serialized = new SerializedObject(existing);
                         serialized.FindProperty("shader").objectReferenceValue = shader;
+                        serialized.FindProperty("exemptMaskShader").objectReferenceValue = exemptMaskShader;
                         serialized.ApplyModifiedPropertiesWithoutUndo();
                         EditorUtility.SetDirty(rendererData);
                     }
@@ -114,6 +123,7 @@ namespace REHozy.Editor
             newFeature.name = "ColorSpread";
             var featureSerialized = new SerializedObject(newFeature);
             featureSerialized.FindProperty("shader").objectReferenceValue = shader;
+            featureSerialized.FindProperty("exemptMaskShader").objectReferenceValue = exemptMaskShader;
             featureSerialized.ApplyModifiedPropertiesWithoutUndo();
 
             AssetDatabase.AddObjectToAsset(newFeature, rendererData);

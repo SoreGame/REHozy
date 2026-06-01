@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.RenderGraphModule.Util;
@@ -14,10 +16,12 @@ namespace REHozy.Rendering
         public static string LastSkipReason { get; private set; } = "Not yet rendered";
 
         [SerializeField] Shader shader;
+        [SerializeField] Shader exemptMaskShader;
         [SerializeField] RenderPassEvent injectionPoint = RenderPassEvent.AfterRenderingPostProcessing;
 
         ColorSpreadRenderPass _pass;
         Material _material;
+        Material _exemptMaskMaterial;
         Texture2D _fallbackNoise;
 
         public override void Create()
@@ -25,11 +29,14 @@ namespace REHozy.Rendering
             _pass = new ColorSpreadRenderPass();
             if (shader != null)
                 _material = CoreUtils.CreateEngineMaterial(shader);
+            if (exemptMaskShader != null)
+                _exemptMaskMaterial = CoreUtils.CreateEngineMaterial(exemptMaskShader);
         }
 
         protected override void Dispose(bool disposing)
         {
             CoreUtils.Destroy(_material);
+            CoreUtils.Destroy(_exemptMaskMaterial);
             if (_fallbackNoise != null)
                 DestroyImmediate(_fallbackNoise);
         }
@@ -44,6 +51,9 @@ namespace REHozy.Rendering
                 LastSkipReason = "Material or shader missing on ColorSpread renderer feature";
                 return;
             }
+
+            if (_exemptMaskMaterial == null && exemptMaskShader != null)
+                _exemptMaskMaterial = CoreUtils.CreateEngineMaterial(exemptMaskShader);
 
             var cameraData = renderingData.cameraData;
             var camera = cameraData.camera;
@@ -98,7 +108,7 @@ namespace REHozy.Rendering
             LastSkipReason = "OK";
 
             _pass.renderPassEvent = injectionPoint;
-            _pass.Setup(_material, shaderParams);
+            _pass.Setup(_material, _exemptMaskMaterial, shaderParams);
             _pass.ConfigureInput(ScriptableRenderPassInput.Depth);
             _pass.requiresIntermediateTexture = true;
             renderer.EnqueuePass(_pass);
@@ -146,6 +156,7 @@ namespace REHozy.Rendering
             public readonly float waveEdgeWidth;
             public readonly Color waveEdgeColor;
             public readonly Matrix4x4 inverseViewProj;
+            public readonly bool exemptMaskEnabled;
 
             public static ColorSpreadShaderParams FromRuntimeData(
                 ColorSpreadRuntimeData data,
@@ -173,7 +184,8 @@ namespace REHozy.Rendering
                     data.waveEdgeIntensity,
                     data.waveEdgeWidth,
                     data.waveEdgeColor,
-                    BuildInverseViewProj(camera));
+                    BuildInverseViewProj(camera),
+                    false);
             }
 
             public static ColorSpreadShaderParams FromVolume(
@@ -214,8 +226,34 @@ namespace REHozy.Rendering
                     volume.waveEdgeIntensity.value,
                     volume.waveEdgeWidth.value,
                     volume.waveEdgeColor.value,
-                    BuildInverseViewProj(camera));
+                    BuildInverseViewProj(camera),
+                    false);
             }
+
+            public ColorSpreadShaderParams WithExemptMask(bool enabled) =>
+                new(
+                    step,
+                    previousMask,
+                    waveAddMask,
+                    center,
+                    startTime,
+                    growthSpeed,
+                    maxRadius,
+                    edgeSoftness,
+                    noiseScale,
+                    noiseStrength,
+                    noiseTexture,
+                    redHueRangeA,
+                    redHueRangeB,
+                    blueHueRangeA,
+                    blueHueRangeB,
+                    greenHueRangeA,
+                    greenHueRangeB,
+                    waveEdgeIntensity,
+                    waveEdgeWidth,
+                    waveEdgeColor,
+                    inverseViewProj,
+                    enabled);
 
             ColorSpreadShaderParams(
                 int step,
@@ -238,7 +276,8 @@ namespace REHozy.Rendering
                 float waveEdgeIntensity,
                 float waveEdgeWidth,
                 Color waveEdgeColor,
-                Matrix4x4 inverseViewProj)
+                Matrix4x4 inverseViewProj,
+                bool exemptMaskEnabled)
             {
                 this.step = step;
                 this.previousMask = previousMask;
@@ -261,6 +300,7 @@ namespace REHozy.Rendering
                 this.waveEdgeWidth = waveEdgeWidth;
                 this.waveEdgeColor = waveEdgeColor;
                 this.inverseViewProj = inverseViewProj;
+                this.exemptMaskEnabled = exemptMaskEnabled;
             }
 
             static Matrix4x4 BuildInverseViewProj(Camera camera)
@@ -296,12 +336,23 @@ namespace REHozy.Rendering
                 material.SetFloat("_WaveEdgeWidth", waveEdgeWidth);
                 material.SetColor("_WaveEdgeColor", waveEdgeColor);
                 material.SetMatrix("_InverseViewProjMatrix", inverseViewProj);
+                material.SetFloat("_ExemptMaskEnabled", exemptMaskEnabled ? 1f : 0f);
             }
+        }
+
+        static class ColorSpreadShaderPropertyIds
+        {
+            public static readonly int BlitTexture = Shader.PropertyToID("_BlitTexture");
+            public static readonly int ExemptMask = Shader.PropertyToID("_ExemptMask");
         }
 
         sealed class ColorSpreadRenderPass : ScriptableRenderPass
         {
+            static readonly List<Renderer> s_ExemptRenderers = new();
+            static readonly MaterialPropertyBlock s_BlitPropertyBlock = new();
+
             Material _material;
+            Material _exemptMaskMaterial;
             ColorSpreadShaderParams _shaderParams;
 
             public ColorSpreadRenderPass()
@@ -309,9 +360,10 @@ namespace REHozy.Rendering
                 profilingSampler = new ProfilingSampler("Color Spread");
             }
 
-            public void Setup(Material material, in ColorSpreadShaderParams shaderParams)
+            public void Setup(Material material, Material exemptMaskMaterial, in ColorSpreadShaderParams shaderParams)
             {
                 _material = material;
+                _exemptMaskMaterial = exemptMaskMaterial;
                 _shaderParams = shaderParams;
             }
 
@@ -328,7 +380,13 @@ namespace REHozy.Rendering
                 if (!cameraColor.IsValid())
                     return;
 
-                _shaderParams.ApplyToMaterial(_material);
+                var shaderParams = _shaderParams;
+                if (TryRecordExemptMaskPass(renderGraph, resources, out var exemptMask, out var exemptMaskEnabled))
+                {
+                    shaderParams = shaderParams.WithExemptMask(exemptMaskEnabled);
+                }
+
+                shaderParams.ApplyToMaterial(_material);
 
                 var desc = renderGraph.GetTextureDesc(cameraColor);
                 desc.name = "_ColorSpreadTemp";
@@ -337,12 +395,14 @@ namespace REHozy.Rendering
 
                 renderGraph.AddCopyPass(cameraColor, temp, passName: "Color Spread Copy");
 
-                var blitParams = new BlitMaterialParameters(temp, cameraColor, _material, 0);
-                using (var builder = renderGraph.AddBlitPass(blitParams, passName: "Color Spread", returnBuilder: true))
-                {
-                    if (resources.cameraDepthTexture.IsValid())
-                        builder.UseTexture(resources.cameraDepthTexture, AccessFlags.Read);
-                }
+                RecordColorSpreadBlitPass(
+                    renderGraph,
+                    resources,
+                    cameraColor,
+                    temp,
+                    shaderParams,
+                    exemptMask,
+                    exemptMaskEnabled);
 
                 if (resources.isActiveTargetBackBuffer)
                 {
@@ -350,6 +410,149 @@ namespace REHozy.Rendering
                     if (backBuffer.IsValid())
                         renderGraph.AddCopyPass(cameraColor, backBuffer, passName: "Color Spread To BackBuffer");
                 }
+            }
+
+            static TextureHandle ResolveSceneDepth(UniversalResourceData resources)
+            {
+                if (resources.cameraDepthTexture.IsValid())
+                    return resources.cameraDepthTexture;
+
+                return resources.activeDepthTexture;
+            }
+
+            void RecordColorSpreadBlitPass(
+                RenderGraph renderGraph,
+                UniversalResourceData resources,
+                TextureHandle destination,
+                TextureHandle source,
+                in ColorSpreadShaderParams shaderParams,
+                TextureHandle exemptMask,
+                bool exemptMaskEnabled)
+            {
+                var depth = ResolveSceneDepth(resources);
+
+                using (var builder = renderGraph.AddRasterRenderPass<ColorSpreadBlitPassData>(
+                           passName,
+                           out var passData,
+                           profilingSampler))
+                {
+                    passData.material = _material;
+                    passData.shaderParams = shaderParams;
+                    passData.source = source;
+                    passData.exemptMask = exemptMask;
+                    passData.exemptMaskEnabled = exemptMaskEnabled;
+
+                    builder.UseTexture(source, AccessFlags.Read);
+                    if (exemptMaskEnabled && exemptMask.IsValid())
+                        builder.UseTexture(exemptMask, AccessFlags.Read);
+                    if (depth.IsValid())
+                        builder.UseTexture(depth, AccessFlags.Read);
+
+                    builder.SetRenderAttachment(destination, 0, AccessFlags.Write);
+                    builder.AllowPassCulling(false);
+
+                    builder.SetRenderFunc(static (ColorSpreadBlitPassData data, RasterGraphContext context) =>
+                    {
+                        data.shaderParams.ApplyToMaterial(data.material);
+
+                        s_BlitPropertyBlock.Clear();
+                        s_BlitPropertyBlock.SetTexture(ColorSpreadShaderPropertyIds.BlitTexture, data.source);
+                        if (data.exemptMaskEnabled && data.exemptMask.IsValid())
+                            s_BlitPropertyBlock.SetTexture(ColorSpreadShaderPropertyIds.ExemptMask, data.exemptMask);
+
+                        context.cmd.DrawProcedural(
+                            Matrix4x4.identity,
+                            data.material,
+                            0,
+                            MeshTopology.Triangles,
+                            3,
+                            1,
+                            s_BlitPropertyBlock);
+                    });
+                }
+            }
+
+            bool TryRecordExemptMaskPass(
+                RenderGraph renderGraph,
+                UniversalResourceData resources,
+                out TextureHandle exemptMask,
+                out bool exemptMaskEnabled)
+            {
+                exemptMask = default;
+                exemptMaskEnabled = false;
+
+                if (_exemptMaskMaterial == null || !ColorSpreadExemptRegistry.TryCollectActiveRenderers(s_ExemptRenderers))
+                {
+                    return false;
+                }
+
+                var depth = ResolveSceneDepth(resources);
+                if (!depth.IsValid())
+                {
+                    return false;
+                }
+
+                var cameraColor = resources.cameraColor;
+                if (!cameraColor.IsValid())
+                {
+                    return false;
+                }
+
+                var maskDesc = renderGraph.GetTextureDesc(cameraColor);
+                maskDesc.name = "_ExemptMask";
+                maskDesc.clearBuffer = true;
+                maskDesc.clearColor = Color.black;
+                maskDesc.depthBufferBits = DepthBits.None;
+                maskDesc.colorFormat = GraphicsFormat.R8_UNorm;
+                exemptMask = renderGraph.CreateTexture(maskDesc);
+                exemptMaskEnabled = true;
+
+                using (var builder = renderGraph.AddRasterRenderPass<ExemptMaskPassData>(
+                           "Color Spread Exempt Mask",
+                           out var passData,
+                           new ProfilingSampler("Color Spread Exempt Mask")))
+                {
+                    passData.maskMaterial = _exemptMaskMaterial;
+                    passData.renderers = s_ExemptRenderers;
+                    builder.SetRenderAttachment(exemptMask, 0, AccessFlags.Write);
+                    builder.SetRenderAttachmentDepth(depth, AccessFlags.Read);
+                    builder.AllowPassCulling(false);
+
+                    builder.SetRenderFunc(static (ExemptMaskPassData data, RasterGraphContext context) =>
+                    {
+                        var cmd = context.cmd;
+                        foreach (var renderer in data.renderers)
+                        {
+                            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                            {
+                                continue;
+                            }
+
+                            var submeshCount = renderer.sharedMaterials.Length;
+                            for (var i = 0; i < submeshCount; i++)
+                            {
+                                cmd.DrawRenderer(renderer, data.maskMaterial, i);
+                            }
+                        }
+                    });
+                }
+
+                return true;
+            }
+
+            sealed class ExemptMaskPassData
+            {
+                public Material maskMaterial;
+                public List<Renderer> renderers;
+            }
+
+            sealed class ColorSpreadBlitPassData
+            {
+                public Material material;
+                public ColorSpreadShaderParams shaderParams;
+                public TextureHandle source;
+                public TextureHandle exemptMask;
+                public bool exemptMaskEnabled;
             }
         }
     }

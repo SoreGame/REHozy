@@ -19,7 +19,7 @@ MonoBehaviour:
     loop: 1
     mixerGroupOverride: {fileID: 0}
   rainLoop:
-    clip: {fileID: 0, guid: c6ce0d5577b8e0b4d8d2a67cf8003c7e, type: 3}
+    clip: {fileID: 8300000, guid: c6ce0d5577b8e0b4d8d2a67cf8003c7e, type: 3}
     volume: 0.7
     pitchRange: {x: 1, y: 1}
     loop: 1

@@ -47,6 +47,10 @@ Shader "Hidden/REHozy/ColorSpread"
             TEXTURE2D(_NoiseTex);
             SAMPLER(sampler_NoiseTex);
 
+            TEXTURE2D(_ExemptMask);
+            SAMPLER(sampler_ExemptMask);
+            float _ExemptMaskEnabled;
+
             static const float3 LuminanceWeights = float3(0.2126729, 0.7151522, 0.0721750);
             static const int MaskRed = 1;
             static const int MaskBlue = 2;
@@ -192,6 +196,10 @@ Shader "Hidden/REHozy/ColorSpread"
 
                 float2 uv = input.uv;
                 float4 fullColor = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_BlitTexture, uv);
+
+                if (_ExemptMaskEnabled > 0.5
+                    && SAMPLE_TEXTURE2D(_ExemptMask, sampler_ExemptMask, uv).r > 0.5)
+                    return fullColor;
 
                 if (_Step < 0.5)
                     return float4(dot(fullColor.rgb, LuminanceWeights).xxx, fullColor.a);
