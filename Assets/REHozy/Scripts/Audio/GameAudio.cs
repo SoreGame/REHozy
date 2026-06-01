@@ -31,14 +31,14 @@ namespace REHozy.Audio
             return _controller != null ? _controller.SfxGroup : null;
         }
 
-        public static void Play(GameSoundId id, Vector3 worldPosition, float spatialBlend = 1f)
+        public static void Play(GameSoundId id, Vector3 worldPosition, float spatialBlend = 0f)
         {
             _controller?.PlayOneShot(id, worldPosition, spatialBlend);
         }
 
-        public static void StartLoop(GameSoundId id, Vector3 worldPosition)
+        public static void StartLoop(GameSoundId id, Vector3 worldPosition, float spatialBlend = 0f)
         {
-            _controller?.StartLoop(id, worldPosition);
+            _controller?.StartLoop(id, worldPosition, spatialBlend);
         }
 
         public static void StopLoop(GameSoundId id)
@@ -49,6 +49,16 @@ namespace REHozy.Audio
         public static void SetRainEnabled(bool enabled, float fadeSeconds = 1f)
         {
             _controller?.SetRainEnabled(enabled, fadeSeconds);
+        }
+
+        public static void StopRainLoop(float fadeSeconds = 1f)
+        {
+            _controller?.StopRainLoop(fadeSeconds);
+        }
+
+        public static void StartRainLoop(float fadeSeconds = 1f)
+        {
+            _controller?.StartRainLoop(fadeSeconds);
         }
 
         public static void SetAmbientEnabled(bool enabled, float fadeSeconds = 1f)

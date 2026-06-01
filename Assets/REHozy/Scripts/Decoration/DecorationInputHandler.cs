@@ -1,4 +1,5 @@
 using REHozy.CarryableTools;
+using REHozy.Watering;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -276,6 +277,8 @@ namespace REHozy.Decoration
             }
 
             var instance = Instantiate(prefab, box.GetSpawnPosition(), box.GetSpawnRotation());
+            box.GetComponent<WateringQuestSpawnBox>()?.OnSpawned(instance);
+
             var decoration = instance.GetComponent<PlaceableDecoration>();
             if (decoration == null)
             {

@@ -1,4 +1,3 @@
-using REHozy.Decoration;
 using UnityEngine;
 
 namespace REHozy.Camera
@@ -64,25 +63,15 @@ namespace REHozy.Camera
             }
 
             var rotateHeld = IsMouseButtonHeld(rotateMouseButton);
-            var carryingDecoration = DecorationCarrySession.IsCarrying;
 
             if (rotateHeld)
             {
                 var delta = GetMouseDelta();
                 yaw += delta.x * rotationSensitivity;
 
-                var ySign = invertY ? 1f : -1f;
-                if (carryingDecoration)
-                {
-                    pitch += delta.y * rotationSensitivity * ySign;
-                    pitch = Mathf.Clamp(pitch, pitchLimits.x, pitchLimits.y);
-                }
-                else
-                {
-                    var zoomSign = invertY ? -1f : 1f;
-                    distance -= delta.y * zoomDragSensitivity * zoomSign;
-                    distance = Mathf.Clamp(distance, distanceLimits.x, distanceLimits.y);
-                }
+                var zoomSign = invertY ? -1f : 1f;
+                distance -= delta.y * zoomDragSensitivity * zoomSign;
+                distance = Mathf.Clamp(distance, distanceLimits.x, distanceLimits.y);
             }
 
             var pivot = target.position + targetOffset;

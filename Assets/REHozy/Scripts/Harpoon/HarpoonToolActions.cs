@@ -1,4 +1,5 @@
 using System.Collections;
+using REHozy.Audio;
 using REHozy.CarryableTools;
 using UnityEngine;
 using UnityEngine.Events;
@@ -60,6 +61,14 @@ namespace REHozy.Harpoon
             }
 
             return TryImpaleOnClick(tool);
+        }
+
+        public void OnReturnHoldStartedInHome(CarryableToolCore tool)
+        {
+            if (HasCargo(tool))
+            {
+                GameAudio.Play(GameSoundId.HarpoonBlockedReturn, tool.Tip.position);
+            }
         }
 
         public void OnHoldCompleteInHome(CarryableToolCore tool)
@@ -158,6 +167,7 @@ namespace REHozy.Harpoon
             }
 
             tool.transform.position = ApplyStrikeClamp(tool, restPosition + strikeDirection * dip);
+            GameAudio.Play(GameSoundId.HarpoonImpale, tool.Tip.position);
             onStrikeBottom?.Invoke();
 
             var upElapsed = 0f;
@@ -242,6 +252,7 @@ namespace REHozy.Harpoon
 
         private IEnumerator DropPhase(CarryableToolCore tool)
         {
+            GameAudio.Play(GameSoundId.HarpoonDispose, tool.Tip.position);
             var item = _mountedItem;
             _mountedItem = null;
             yield return new WaitForSeconds(tool.AnimationLockDuration);
@@ -255,6 +266,7 @@ namespace REHozy.Harpoon
 
         private IEnumerator TrashConsumePhase(CarryableToolCore tool)
         {
+            GameAudio.Play(GameSoundId.HarpoonDispose, tool.Tip.position);
             var item = _mountedItem;
             _mountedItem = null;
             yield return new WaitForSeconds(tool.AnimationLockDuration);

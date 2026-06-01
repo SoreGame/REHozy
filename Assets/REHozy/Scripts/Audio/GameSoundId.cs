@@ -13,14 +13,12 @@ namespace REHozy.Audio
         HarpoonBlockedReturn,
 
         ShovelDigLoop,
-        ShovelDigHit,
 
         WaterPourLoop,
 
         TorchIgnite,
-        TorchExtinguish,
-        TorchRefuel,
         TorchBurnLoop,
+        StaticTorchBurnLoop,
 
         PropPickup,
         PropPlace,

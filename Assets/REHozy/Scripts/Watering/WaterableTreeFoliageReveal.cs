@@ -27,6 +27,16 @@ namespace REHozy.Watering
             ApplyReveal(0f);
         }
 
+        private void OnEnable()
+        {
+            WaterableRegistry.Register(this);
+        }
+
+        private void OnDisable()
+        {
+            WaterableRegistry.Unregister(this);
+        }
+
         public void TryWater(Vector3 waterPoint, float amount, float deltaTime)
         {
             if (_reveal01 >= 1f || foliageRenderer == null)

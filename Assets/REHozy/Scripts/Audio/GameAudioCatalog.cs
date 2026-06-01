@@ -22,7 +22,6 @@ namespace REHozy.Audio
 
         [Header("Shovel")]
         public GameAudioClipEntry shovelDigLoop;
-        public GameAudioClipEntry shovelDigHit;
 
         [Header("Watering")]
         public GameAudioClipEntry waterPourLoop;
@@ -30,8 +29,7 @@ namespace REHozy.Audio
         [Header("Torch")]
         public GameAudioClipEntry torchBurnLoop;
         public GameAudioClipEntry torchIgnite;
-        public GameAudioClipEntry torchExtinguish;
-        public GameAudioClipEntry torchRefuel;
+        public GameAudioClipEntry staticTorchBurnLoop;
 
         [Header("Decoration")]
         public GameAudioClipEntry propPickup;
@@ -49,12 +47,10 @@ namespace REHozy.Audio
                 GameSoundId.HarpoonDispose => harpoonDispose,
                 GameSoundId.HarpoonBlockedReturn => harpoonBlockedReturn,
                 GameSoundId.ShovelDigLoop => shovelDigLoop,
-                GameSoundId.ShovelDigHit => shovelDigHit,
                 GameSoundId.WaterPourLoop => waterPourLoop,
                 GameSoundId.TorchBurnLoop => torchBurnLoop,
                 GameSoundId.TorchIgnite => torchIgnite,
-                GameSoundId.TorchExtinguish => torchExtinguish,
-                GameSoundId.TorchRefuel => torchRefuel,
+                GameSoundId.StaticTorchBurnLoop => staticTorchBurnLoop,
                 GameSoundId.PropPickup => propPickup,
                 GameSoundId.PropPlace => propPlace,
                 _ => null,
@@ -75,18 +71,48 @@ namespace REHozy.Audio
                 GameSoundId.HarpoonDispose => harpoonDispose,
                 GameSoundId.HarpoonBlockedReturn => harpoonBlockedReturn,
                 GameSoundId.ShovelDigLoop => shovelDigLoop,
-                GameSoundId.ShovelDigHit => shovelDigHit,
                 GameSoundId.WaterPourLoop => waterPourLoop,
                 GameSoundId.TorchBurnLoop => torchBurnLoop,
                 GameSoundId.TorchIgnite => torchIgnite,
-                GameSoundId.TorchExtinguish => torchExtinguish,
-                GameSoundId.TorchRefuel => torchRefuel,
+                GameSoundId.StaticTorchBurnLoop => staticTorchBurnLoop,
                 GameSoundId.PropPickup => propPickup,
                 GameSoundId.PropPlace => propPlace,
                 _ => null,
             };
 
             return entry != null;
+        }
+
+        public void PreloadAllClips()
+        {
+            PreloadClip(ambientLoop);
+            PreloadClip(rainLoop);
+            PreloadClip(toolPickup);
+            PreloadClip(toolReturnHome);
+            PreloadClip(harpoonImpale);
+            PreloadClip(harpoonDispose);
+            PreloadClip(harpoonBlockedReturn);
+            PreloadClip(shovelDigLoop);
+            PreloadClip(waterPourLoop);
+            PreloadClip(torchBurnLoop);
+            PreloadClip(torchIgnite);
+            PreloadClip(staticTorchBurnLoop);
+            PreloadClip(propPickup);
+            PreloadClip(propPlace);
+        }
+
+        private static void PreloadClip(GameAudioClipEntry entry)
+        {
+            if (entry?.clip == null)
+            {
+                return;
+            }
+
+            var clip = entry.clip;
+            if (clip.loadState == AudioDataLoadState.Unloaded)
+            {
+                clip.LoadAudioData();
+            }
         }
     }
 }

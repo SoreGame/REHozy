@@ -20,11 +20,8 @@ namespace REHozy.Dirt
         private static readonly RaycastHit[] RaycastHits = new RaycastHit[32];
         private static readonly DirtDeformPatch[] PatchScratch = new DirtDeformPatch[8];
 
-        private const float DigHitInterval = 0.2f;
-
         private bool _digAimActive;
         private bool _digLoopActive;
-        private float _lastDigHitTime = float.NegativeInfinity;
         private Vector3 _lastDigAnchor;
         private bool _hasLastDigAnchor;
 
@@ -36,6 +33,10 @@ namespace REHozy.Dirt
         public bool CanReturnHome(CarryableToolCore tool) => tool.State == CarryableToolState.Carried;
 
         public bool OnCarriedClick(CarryableToolCore tool) => false;
+
+        public void OnReturnHoldStartedInHome(CarryableToolCore tool)
+        {
+        }
 
         public void OnHoldCompleteInHome(CarryableToolCore tool)
         {
@@ -155,12 +156,6 @@ namespace REHozy.Dirt
                 }
 
                 patch.TryErodeAtWorld(digPoint, digRadius, digStrength);
-            }
-
-            if (Time.time - _lastDigHitTime >= DigHitInterval)
-            {
-                _lastDigHitTime = Time.time;
-                GameAudio.Play(GameSoundId.ShovelDigHit, digPoint);
             }
         }
 

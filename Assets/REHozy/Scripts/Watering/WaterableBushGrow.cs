@@ -26,6 +26,16 @@ namespace REHozy.Watering
             target.localScale = minScale;
         }
 
+        private void OnEnable()
+        {
+            WaterableRegistry.Register(this);
+        }
+
+        private void OnDisable()
+        {
+            WaterableRegistry.Unregister(this);
+        }
+
         public void TryWater(Vector3 waterPoint, float amount, float deltaTime)
         {
             if (_growth01 >= 1f)

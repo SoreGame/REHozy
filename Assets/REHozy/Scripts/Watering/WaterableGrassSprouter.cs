@@ -17,6 +17,16 @@ namespace REHozy.Watering
         private readonly List<Transform> _spawned = new();
         private float _spawnProgress;
 
+        private void OnEnable()
+        {
+            WaterableRegistry.Register(this);
+        }
+
+        private void OnDisable()
+        {
+            WaterableRegistry.Unregister(this);
+        }
+
         public bool IsWateringComplete
         {
             get

@@ -43,6 +43,10 @@ namespace REHozy.Watering
 
         public bool OnCarriedClick(CarryableToolCore tool) => false;
 
+        public void OnReturnHoldStartedInHome(CarryableToolCore tool)
+        {
+        }
+
         public void OnHoldCompleteInHome(CarryableToolCore tool)
         {
             tool.StartReturnHome();

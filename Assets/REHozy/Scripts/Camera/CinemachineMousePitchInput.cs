@@ -1,4 +1,3 @@
-using REHozy.Decoration;
 using Unity.Cinemachine;
 using Unity.Cinemachine.TargetTracking;
 using UnityEngine;
@@ -209,8 +208,6 @@ namespace REHozy.Camera
                 return;
             }
 
-            var carryingDecoration = DecorationCarrySession.IsCarrying;
-
             var orbitHeld = IsOrbitHeld();
             if (!orbitHeld)
             {
@@ -221,10 +218,7 @@ namespace REHozy.Camera
             var justPressed = !_wasOrbitHeld;
             _wasOrbitHeld = true;
 
-            if (!carryingDecoration)
-            {
-                EnforceLockedVertical();
-            }
+            EnforceLockedVertical();
 
             var delta = ClampMouseDelta(ReadLookDelta());
             if (justPressed)
@@ -251,18 +245,7 @@ namespace REHozy.Camera
                 return;
             }
 
-            if (carryingDecoration)
-            {
-                var vertical = orbitalFollow.VerticalAxis;
-                vertical.TrackValueChange();
-                vertical.Value += delta.y * sensitivity * ySign;
-                vertical.Value = vertical.ClampValue(vertical.Value);
-                orbitalFollow.VerticalAxis = vertical;
-            }
-            else
-            {
-                ApplyDollyZoom(delta.y * zoomDragSensitivity * ySign);
-            }
+            ApplyDollyZoom(delta.y * zoomDragSensitivity * ySign);
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using System.Collections;
 using REHozy.Audio;
 using REHozy.CarryableTools;
 using UnityEngine;
@@ -14,13 +15,11 @@ namespace REHozy.Torch
         [SerializeField] private TorchFlameLightSettings torchLightSettings = new();
 
         [Header("Burn Audio")]
-        [Tooltip("Carried torch uses 2D audio so it stays audible with a distant third-person camera.")]
-        [SerializeField] private float carriedSpatialBlend;
-        [SerializeField] private float worldSpatialBlend = 1f;
-        [SerializeField] private float burnMinDistance = 2f;
-        [SerializeField] private float burnMaxDistance = 80f;
+        [SerializeField] private float staticAmbientDelay = 0.45f;
 
         private bool _isCarriedTorch;
+        private bool _isStaticTorch;
+        private Coroutine _staticAmbientDelayRoutine;
 
         private Light _spawnedTorchLight;
         private AudioSource _burnSource;
@@ -49,17 +48,22 @@ namespace REHozy.Torch
             }
 
             _isCarriedTorch = GetComponentInParent<CarryableToolCore>() != null;
+            _isStaticTorch = !_isCarriedTorch && GetComponentInParent<StaticTorch>() != null;
+            if (_isCarriedTorch)
+            {
+                PrewarmBurnAudio();
+            }
+
             SetLit(false);
         }
 
-        private void LateUpdate()
+        private void OnDisable()
         {
-            if (!IsLit || _burnSource == null || !_burnSource.isPlaying)
+            if (_staticAmbientDelayRoutine != null)
             {
-                return;
+                StopCoroutine(_staticAmbientDelayRoutine);
+                _staticAmbientDelayRoutine = null;
             }
-
-            _burnSource.transform.position = LightAnchor.position;
         }
 
         public void SetLit(bool lit)
@@ -76,18 +80,19 @@ namespace REHozy.Torch
 
             if (lit)
             {
-                GameAudio.Play(
-                    GameSoundId.TorchIgnite,
-                    LightAnchor.position,
-                    _isCarriedTorch ? carriedSpatialBlend : worldSpatialBlend);
-                StartBurnLoop();
+                GameAudio.Play(GameSoundId.TorchIgnite, LightAnchor.position);
+
+                if (_isCarriedTorch)
+                {
+                    StartBurnLoop();
+                }
+                else if (_isStaticTorch)
+                {
+                    ScheduleStaticAmbient();
+                }
             }
             else
             {
-                GameAudio.Play(
-                    GameSoundId.TorchExtinguish,
-                    LightAnchor.position,
-                    _isCarriedTorch ? carriedSpatialBlend : worldSpatialBlend);
                 StopBurnLoop();
             }
         }
@@ -166,6 +171,44 @@ namespace REHozy.Torch
             }
         }
 
+        private void ScheduleStaticAmbient()
+        {
+            if (_staticAmbientDelayRoutine != null)
+            {
+                StopCoroutine(_staticAmbientDelayRoutine);
+            }
+
+            _staticAmbientDelayRoutine = StartCoroutine(StartStaticAmbientAfterIgnite());
+        }
+
+        private IEnumerator StartStaticAmbientAfterIgnite()
+        {
+            var delay = Mathf.Max(staticAmbientDelay, 0f);
+            if (delay > 0f)
+            {
+                yield return new WaitForSeconds(delay);
+            }
+
+            StaticTorchAmbientAudio.EnsurePlaying(LightAnchor.position);
+            _staticAmbientDelayRoutine = null;
+        }
+
+        private void PrewarmBurnAudio()
+        {
+            if (!GameAudio.TryGetClipEntry(GameSoundId.TorchBurnLoop, out var entry) || entry.clip == null)
+            {
+                return;
+            }
+
+            if (entry.clip.loadState == AudioDataLoadState.Unloaded)
+            {
+                entry.clip.LoadAudioData();
+            }
+
+            EnsureBurnSource();
+            ApplyBurnSourceSettings(entry);
+        }
+
         private void StartBurnLoop()
         {
             if (!GameAudio.TryGetClipEntry(GameSoundId.TorchBurnLoop, out var entry) || entry.clip == null)
@@ -180,7 +223,13 @@ namespace REHozy.Torch
                 return;
             }
 
-            ConfigureBurnSourceSpatial();
+            ApplyBurnSourceSettings(entry);
+            _burnSource.Play();
+        }
+
+        private void ApplyBurnSourceSettings(GameAudioClipEntry entry)
+        {
+            _burnSource.spatialBlend = 0f;
             _burnSource.clip = entry.clip;
             _burnSource.volume = entry.volume;
             _burnSource.pitch = entry.pitchRange.x;
@@ -188,8 +237,6 @@ namespace REHozy.Torch
             _burnSource.outputAudioMixerGroup = entry.mixerGroupOverride != null
                 ? entry.mixerGroupOverride
                 : GameAudio.GetSfxGroup();
-            _burnSource.transform.position = LightAnchor.position;
-            _burnSource.Play();
         }
 
         private void StopBurnLoop()
@@ -200,18 +247,6 @@ namespace REHozy.Torch
             }
 
             _burnSource.Stop();
-        }
-
-        private void ConfigureBurnSourceSpatial()
-        {
-            if (_burnSource == null)
-            {
-                return;
-            }
-
-            _burnSource.spatialBlend = _isCarriedTorch ? carriedSpatialBlend : worldSpatialBlend;
-            _burnSource.minDistance = burnMinDistance;
-            _burnSource.maxDistance = burnMaxDistance;
         }
 
         private void EnsureBurnSource()
@@ -225,8 +260,7 @@ namespace REHozy.Torch
             audioObject.transform.SetParent(LightAnchor, false);
             _burnSource = audioObject.AddComponent<AudioSource>();
             _burnSource.playOnAwake = false;
-            _burnSource.rolloffMode = AudioRolloffMode.Logarithmic;
-            ConfigureBurnSourceSpatial();
+            _burnSource.spatialBlend = 0f;
         }
     }
 }

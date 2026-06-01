@@ -1,5 +1,6 @@
 using REHozy.Decoration;
 using REHozy.Torch;
+using REHozy.Watering;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -178,6 +179,23 @@ namespace REHozy.CarryableTools
 
             EnsureTorchFuelUi(core);
             EnsureTorchMapOutline(core);
+            EnsureWateringMapOutline(core);
+        }
+
+        private void EnsureWateringMapOutline(CarryableToolCore core)
+        {
+            if (core == null || core.ToolModeId != PlayerToolMode.Water)
+            {
+                return;
+            }
+
+            var outlineController = GetComponent<WateringMapOutlineController>();
+            if (outlineController == null)
+            {
+                outlineController = gameObject.AddComponent<WateringMapOutlineController>();
+            }
+
+            outlineController.BindToTool(core);
         }
 
         private void EnsureTorchMapOutline(CarryableToolCore core)
@@ -280,8 +298,13 @@ namespace REHozy.CarryableTools
 
                 if (inHome)
                 {
+                    var returnHoldJustStarted = !IsReturnHoldInProgress;
                     IsReturnHoldInProgress = true;
                     ReturnHoldProgress01 = Mathf.Clamp01(held / duration);
+                    if (returnHoldJustStarted)
+                    {
+                        _actions?.OnReturnHoldStartedInHome(tool);
+                    }
                 }
 
                 if (held >= duration)

@@ -7,6 +7,7 @@ namespace REHozy.Audio
 {
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Audio/Game Audio Controller")]
+    [DefaultExecutionOrder(-150)]
     public sealed class GameAudioController : MonoBehaviour
     {
         [Header("Configuration")]
@@ -19,6 +20,8 @@ namespace REHozy.Audio
         [SerializeField] private AudioMixerGroup sfxGroup;
 
         [Header("Startup")]
+        [SerializeField] private bool preloadCatalogOnAwake = true;
+        [SerializeField] private bool warmupSfxPoolOnStart = true;
         [SerializeField] private bool playAmbientOnStart = true;
         [SerializeField] private bool rainEnabledOnStart = true;
 
@@ -43,6 +46,11 @@ namespace REHozy.Audio
         {
             GameAudio.Register(this);
             EnsureSources();
+
+            if (preloadCatalogOnAwake)
+            {
+                catalog?.PreloadAllClips();
+            }
         }
 
         void OnDestroy()
@@ -52,6 +60,11 @@ namespace REHozy.Audio
 
         void Start()
         {
+            if (warmupSfxPoolOnStart)
+            {
+                StartCoroutine(WarmupSfxPool());
+            }
+
             if (playAmbientOnStart)
             {
                 SetAmbientEnabled(true, 0f);
@@ -68,7 +81,7 @@ namespace REHozy.Audio
             return catalog != null && catalog.TryGetClipEntry(id, out entry);
         }
 
-        public void PlayOneShot(GameSoundId id, Vector3 worldPosition, float spatialBlend = 1f)
+        public void PlayOneShot(GameSoundId id, Vector3 worldPosition, float spatialBlend = 0f)
         {
             if (catalog == null || !catalog.TryGetEntry(id, out var entry))
             {
@@ -86,7 +99,7 @@ namespace REHozy.Audio
             StartCoroutine(ReleaseWhenFinished(source));
         }
 
-        public void StartLoop(GameSoundId id, Vector3 worldPosition)
+        public void StartLoop(GameSoundId id, Vector3 worldPosition, float spatialBlend = 0f)
         {
             if (catalog == null || !catalog.TryGetEntry(id, out var entry))
             {
@@ -96,6 +109,7 @@ namespace REHozy.Audio
             if (_activeLoops.TryGetValue(id, out var existing) && existing != null)
             {
                 existing.transform.position = worldPosition;
+                existing.spatialBlend = spatialBlend;
                 if (!existing.isPlaying)
                 {
                     existing.Play();
@@ -110,13 +124,19 @@ namespace REHozy.Audio
                 return;
             }
 
-            Configure3DSource(source, entry, worldPosition, loop: true);
+            Configure3DSource(source, entry, worldPosition, loop: true, spatialBlend);
             source.Play();
             _activeLoops[id] = source;
         }
 
         public void StopLoop(GameSoundId id)
         {
+            if (id == GameSoundId.RainLoop)
+            {
+                StopRainLoop();
+                return;
+            }
+
             if (!_activeLoops.TryGetValue(id, out var source) || source == null)
             {
                 return;
@@ -125,6 +145,16 @@ namespace REHozy.Audio
             source.Stop();
             _activeLoops.Remove(id);
             ReturnPoolSource(source);
+        }
+
+        public void StopRainLoop(float fadeSeconds = -1f)
+        {
+            SetRainEnabled(false, fadeSeconds);
+        }
+
+        public void StartRainLoop(float fadeSeconds = -1f)
+        {
+            SetRainEnabled(true, fadeSeconds);
         }
 
         public void SetAmbientEnabled(bool enabled, float fadeSeconds = -1f)
@@ -159,7 +189,7 @@ namespace REHozy.Audio
             _pool.Clear();
             for (var i = 0; i < Mathf.Max(oneShotPoolSize, 1); i++)
             {
-                var source = CreateLoopSource($"SfxSource_{i}", sfxGroup, spatialBlend: 1f);
+                var source = CreateLoopSource($"SfxSource_{i}", sfxGroup, spatialBlend: 0f);
                 source.gameObject.SetActive(false);
                 _pool.Add(source);
             }
@@ -184,7 +214,7 @@ namespace REHozy.Audio
             GameAudioClipEntry entry,
             Vector3 worldPosition,
             bool loop,
-            float spatialBlend = 1f)
+            float spatialBlend = 0f)
         {
             source.gameObject.SetActive(true);
             source.transform.position = worldPosition;
@@ -207,7 +237,7 @@ namespace REHozy.Audio
                 }
             }
 
-            var extra = CreateLoopSource($"SfxSource_Extra_{_pool.Count}", sfxGroup, spatialBlend: 1f);
+            var extra = CreateLoopSource($"SfxSource_Extra_{_pool.Count}", sfxGroup, spatialBlend: 0f);
             _pool.Add(extra);
             return extra;
         }
@@ -223,6 +253,61 @@ namespace REHozy.Audio
             source.clip = null;
             source.loop = false;
             source.gameObject.SetActive(false);
+        }
+
+        IEnumerator WarmupSfxPool()
+        {
+            if (catalog == null)
+            {
+                yield break;
+            }
+
+            var clips = new HashSet<AudioClip>();
+            CollectWarmupClip(catalog.torchIgnite, clips);
+            CollectWarmupClip(catalog.torchBurnLoop, clips);
+            CollectWarmupClip(catalog.staticTorchBurnLoop, clips);
+            CollectWarmupClip(catalog.toolPickup, clips);
+            CollectWarmupClip(catalog.toolReturnHome, clips);
+            CollectWarmupClip(catalog.harpoonImpale, clips);
+            CollectWarmupClip(catalog.harpoonDispose, clips);
+            CollectWarmupClip(catalog.harpoonBlockedReturn, clips);
+            CollectWarmupClip(catalog.shovelDigLoop, clips);
+            CollectWarmupClip(catalog.waterPourLoop, clips);
+            CollectWarmupClip(catalog.propPickup, clips);
+            CollectWarmupClip(catalog.propPlace, clips);
+            CollectWarmupClip(catalog.rainLoop, clips);
+            CollectWarmupClip(catalog.ambientLoop, clips);
+
+            foreach (var clip in clips)
+            {
+                var source = RentPoolSource();
+                if (source == null)
+                {
+                    continue;
+                }
+
+                source.gameObject.SetActive(true);
+                source.clip = clip;
+                source.volume = 0f;
+                source.pitch = 1f;
+                source.loop = false;
+                source.spatialBlend = 0f;
+                source.outputAudioMixerGroup = sfxGroup;
+                source.Play();
+
+                yield return null;
+
+                source.Stop();
+                ReturnPoolSource(source);
+            }
+        }
+
+        static void CollectWarmupClip(GameAudioClipEntry entry, HashSet<AudioClip> clips)
+        {
+            if (entry?.clip != null)
+            {
+                clips.Add(entry.clip);
+            }
         }
 
         IEnumerator ReleaseWhenFinished(AudioSource source)

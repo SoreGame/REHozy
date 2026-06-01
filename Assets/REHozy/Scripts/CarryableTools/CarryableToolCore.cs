@@ -229,6 +229,7 @@ namespace REHozy.CarryableTools
             _returnFromPosition = transform.position;
             _returnFromRotation = transform.rotation;
             SetCursorVisible(true);
+            GameAudio.Play(GameSoundId.ToolReturnHome, transform.position);
         }
 
         public void StartPhase(IEnumerator body, UnityEvent started, UnityEvent finished)
@@ -260,7 +261,6 @@ namespace REHozy.CarryableTools
         {
             transform.SetPositionAndRotation(_startPose.position, _startPose.rotation);
             _groundRestPose = _startPose;
-            GameAudio.Play(GameSoundId.ToolReturnHome, transform.position);
             ApplyOnGround();
         }
 

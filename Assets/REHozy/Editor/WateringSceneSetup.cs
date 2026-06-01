@@ -133,6 +133,17 @@ namespace REHozy.EditorTools
                 soReturn.ApplyModifiedPropertiesWithoutUndo();
             }
 
+            if (mode == PlayerToolMode.Water)
+            {
+                var outlineController = input.GetComponent<WateringMapOutlineController>();
+                if (outlineController == null)
+                {
+                    outlineController = input.gameObject.AddComponent<WateringMapOutlineController>();
+                }
+
+                outlineController.BindToTool(core);
+            }
+
             EnsureModeBootstrap(input.gameObject, mode);
             PlayerToolModeState.Active = mode;
             input.RefreshToolBinding();

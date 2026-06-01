@@ -37,19 +37,19 @@ MonoBehaviour:
     loop: 0
     mixerGroupOverride: {fileID: 0}
   harpoonImpale:
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   harpoonDispose:
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   harpoonBlockedReturn:
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
@@ -60,14 +60,8 @@ MonoBehaviour:
     pitchRange: {x: 1, y: 1}
     loop: 1
     mixerGroupOverride: {fileID: 0}
-  shovelDigHit:
-    clip: {fileID: 0}
-    volume: 1
-    pitchRange: {x: 0.9, y: 1.1}
-    loop: 0
-    mixerGroupOverride: {fileID: 0}
   waterPourLoop:
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 69de09866ccdbf649be14b4d993f5bc8, type: 3}
     volume: 0.85
     pitchRange: {x: 1, y: 1}
     loop: 1
@@ -76,34 +70,28 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: 73158e07950b4ff489f6c869ce204221, type: 3}
     volume: 0.9
     pitchRange: {x: 0.98, y: 1.02}
-    loop: 0
+    loop: 1
     mixerGroupOverride: {fileID: 0}
   torchIgnite:
+    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
+    volume: 0.337
+    pitchRange: {x: 0.95, y: 1.05}
+    loop: 0
+    mixerGroupOverride: {fileID: 0}
+  staticTorchBurnLoop:
+    clip: {fileID: 8300000, guid: 73158e07950b4ff489f6c869ce204221, type: 3}
+    volume: 0.35
+    pitchRange: {x: 1, y: 1}
+    loop: 1
+    mixerGroupOverride: {fileID: 0}
+  propPickup:
     clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
-  torchExtinguish:
-    clip: {fileID: 0}
-    volume: 1
-    pitchRange: {x: 0.95, y: 1.05}
-    loop: 0
-    mixerGroupOverride: {fileID: 0}
-  torchRefuel:
-    clip: {fileID: 0}
-    volume: 0.8
-    pitchRange: {x: 0.95, y: 1.05}
-    loop: 0
-    mixerGroupOverride: {fileID: 0}
-  propPickup:
-    clip: {fileID: 0}
-    volume: 1
-    pitchRange: {x: 0.95, y: 1.05}
-    loop: 0
-    mixerGroupOverride: {fileID: 0}
   propPlace:
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
