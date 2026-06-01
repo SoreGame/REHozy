@@ -35,6 +35,10 @@ namespace REHozy.Audio
         public GameAudioClipEntry propPickup;
         public GameAudioClipEntry propPlace;
 
+        [Header("UI")]
+        public GameAudioClipEntry uiQuestAppear;
+        public GameAudioClipEntry uiInventoryOpen;
+
         public bool TryGetEntry(GameSoundId id, out GameAudioClipEntry entry)
         {
             entry = id switch
@@ -53,6 +57,8 @@ namespace REHozy.Audio
                 GameSoundId.StaticTorchBurnLoop => staticTorchBurnLoop,
                 GameSoundId.PropPickup => propPickup,
                 GameSoundId.PropPlace => propPlace,
+                GameSoundId.UiQuestAppear => uiQuestAppear,
+                GameSoundId.UiInventoryOpen => uiInventoryOpen,
                 _ => null,
             };
 
@@ -77,6 +83,8 @@ namespace REHozy.Audio
                 GameSoundId.StaticTorchBurnLoop => staticTorchBurnLoop,
                 GameSoundId.PropPickup => propPickup,
                 GameSoundId.PropPlace => propPlace,
+                GameSoundId.UiQuestAppear => uiQuestAppear,
+                GameSoundId.UiInventoryOpen => uiInventoryOpen,
                 _ => null,
             };
 
@@ -99,6 +107,8 @@ namespace REHozy.Audio
             PreloadClip(staticTorchBurnLoop);
             PreloadClip(propPickup);
             PreloadClip(propPlace);
+            PreloadClip(uiQuestAppear);
+            PreloadClip(uiInventoryOpen);
         }
 
         private static void PreloadClip(GameAudioClipEntry entry)

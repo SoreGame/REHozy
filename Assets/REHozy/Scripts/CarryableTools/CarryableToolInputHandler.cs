@@ -167,6 +167,11 @@ namespace REHozy.CarryableTools
 
         private void SetBoundTool(CarryableToolCore core)
         {
+            if (tool != null && tool != core)
+            {
+                tool.ForceReleaseWork();
+            }
+
             tool = core;
             _actions = tool != null ? tool.GetComponent<ICarryableToolActions>() : null;
             _carriedUpdate = tool != null ? tool.GetComponent<ICarryableToolCarriedUpdate>() : null;

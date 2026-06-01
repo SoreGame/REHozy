@@ -102,12 +102,26 @@ namespace REHozy.CarryableTools
         /// Snaps to ground and resting pose (e.g. before quest hides the tool).
         /// When carried, uses the ground point under the tool instead of the pickup pose.
         /// </summary>
+        public void ForceReleaseWork()
+        {
+            var releases = GetComponents<ICarryableToolForceRelease>();
+            for (var i = 0; i < releases.Length; i++)
+            {
+                releases[i]?.OnForceReleased(this);
+            }
+        }
+
         public void SnapToHomeGround()
         {
             if (_phaseRoutine != null)
             {
                 StopCoroutine(_phaseRoutine);
                 _phaseRoutine = null;
+            }
+
+            if (_state is CarryableToolState.Carried or CarryableToolState.Busy)
+            {
+                ForceReleaseWork();
             }
 
             if (_state == CarryableToolState.Carried)
@@ -274,6 +288,7 @@ namespace REHozy.CarryableTools
 
         private void OnDisable()
         {
+            ForceReleaseWork();
             CarryableGameplayLock.SetCanPickup(true);
         }
 

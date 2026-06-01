@@ -1,4 +1,5 @@
 using REHozy;
+using REHozy.Audio;
 using UnityEngine;
 using TMPro;
 using System.Collections.Generic;
@@ -104,13 +105,13 @@ public class QuestView : MonoBehaviour
 
     public void StartQuest(QuestData data)
     {
-        ShowPanel(data, "Получен квест");
+        ShowPanel(data, "Получен квест", playAppearSound: true);
         CreateQuestCell(data);
     }
 
     public void FinishQuest(QuestData data)
     {
-        ShowPanel(data, "Квест завершен");
+        ShowPanel(data, "Квест завершен", playAppearSound: false);
         if (data.selected)
             _selectedPanel.SetActive(false);
 
@@ -131,7 +132,7 @@ public class QuestView : MonoBehaviour
         cellsObj.RemoveAt(cell_ind);
         cells.RemoveAt(cell_ind);
     }
-    private void ShowPanel(QuestData data, string name)
+    private void ShowPanel(QuestData data, string name, bool playAppearSound)
     {
         if (!data.animation_start && data.progress < data.goal)
             return;
@@ -140,6 +141,10 @@ public class QuestView : MonoBehaviour
         _nameText.text = $"{name}: {data.quest_name}";
         _descriptionText.text = $"{data.quest_description}\n{DescriptionText(data, data.progress < data.goal)}";
         _animator.SetTrigger("Show");
+        if (playAppearSound)
+        {
+            GameAudio.Play(GameSoundId.UiQuestAppear, Vector3.zero);
+        }
     }
     private string DescriptionText(QuestData data, bool is_start)
     {
@@ -218,12 +223,18 @@ public class QuestView : MonoBehaviour
 
     private void SetListVisible(bool visible)
     {
+        var opening = visible && !listVisible;
         listVisible = visible;
         if (visible)
             UiEventSystemUtility.EnsureAvailable();
 
         _listPanel.SetActive(listVisible);
         GameplayUiLock.SetActive(listVisible);
+        if (opening)
+        {
+            GameAudio.Play(GameSoundId.UiInventoryOpen, Vector3.zero);
+        }
+
         if (listVisible)
         {
             QuestBus.GetInstance().OnUpdateData?.Invoke();

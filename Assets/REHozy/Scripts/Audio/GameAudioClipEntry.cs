@@ -8,7 +8,7 @@ namespace REHozy.Audio
     public sealed class GameAudioClipEntry
     {
         public AudioClip clip;
-        [Range(0f, 1f)] public float volume = 1f;
+        [Min(0f)] public float volume = 1f;
         public Vector2 pitchRange = Vector2.one;
         public bool loop;
         public AudioMixerGroup mixerGroupOverride;

@@ -7,7 +7,7 @@ namespace REHozy.Dirt
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Dirt/Shovel Tool Actions")]
     public sealed class ShovelToolActions : MonoBehaviour, ICarryableToolActions, ICarryableToolCarriedUpdate,
-        ICarryableAimOverride
+        ICarryableAimOverride, ICarryableToolForceRelease
     {
         [Header("Digging")]
         [SerializeField] private float digRadius = 0.45f;
@@ -74,21 +74,22 @@ namespace REHozy.Dirt
             return true;
         }
 
+        public void OnForceReleased(CarryableToolCore tool)
+        {
+            CancelDigWork(tool);
+        }
+
         public void OnCarriedUpdate(CarryableToolCore tool, bool attackHeld, bool returnHoldInProgress)
         {
             if (tool.State != CarryableToolState.Carried)
             {
-                tool.CarryDriver?.SetWorkPoseActive(false);
-                ReleaseDigAim();
-                StopDigAudio();
+                CancelDigWork(tool);
                 return;
             }
 
             if (!attackHeld || returnHoldInProgress)
             {
-                tool.CarryDriver?.SetWorkPoseActive(false);
-                ReleaseDigAim();
-                StopDigAudio();
+                CancelDigWork(tool);
                 return;
             }
 
@@ -96,6 +97,13 @@ namespace REHozy.Dirt
             _digAimActive = true;
             StartDigAudio(tool.Tip.position);
             DigAtTip(tool);
+        }
+
+        private void CancelDigWork(CarryableToolCore tool)
+        {
+            tool.CarryDriver?.SetWorkPoseActive(false);
+            ReleaseDigAim();
+            StopDigAudio();
         }
 
         private void ReleaseDigAim()

@@ -9,7 +9,7 @@ namespace REHozy.Watering
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Watering/Watering Can Tool Actions")]
     public sealed class WateringCanToolActions : MonoBehaviour, ICarryableToolActions, ICarryableToolCarriedUpdate,
-        ICarryableWorkMagnet
+        ICarryableWorkMagnet, ICarryableToolForceRelease
     {
         [Header("Pour")]
         [SerializeField] private WateringCanAimPivot aimPivot;
@@ -73,15 +73,16 @@ namespace REHozy.Watering
             return TryResolveSpoutMagnet(tipPivot, out targetWorldPoint, out strength01);
         }
 
+        public void OnForceReleased(CarryableToolCore tool)
+        {
+            CancelPourWork(tool);
+        }
+
         public void OnCarriedUpdate(CarryableToolCore tool, bool attackHeld, bool returnHoldInProgress)
         {
             if (tool.State != CarryableToolState.Carried)
             {
-                aimPivot?.ResetPourTilt();
-                StopPourAudio();
-                StopPouring();
-                ClearMagnetLock();
-                tool.CarryDriver?.SetWorkPoseActive(false);
+                CancelPourWork(tool);
                 return;
             }
 
@@ -208,6 +209,16 @@ namespace REHozy.Watering
             }
 
             return TryGetWaterableTargetPoints(behaviour, out anchor, out _);
+        }
+
+        private void CancelPourWork(CarryableToolCore tool)
+        {
+            aimPivot?.ResetPourTilt();
+            StopPourAudio();
+            StopPouring();
+            ClearMagnetLock();
+            _wasPouring = false;
+            tool.CarryDriver?.SetWorkPoseActive(false);
         }
 
         private void StopPouring()

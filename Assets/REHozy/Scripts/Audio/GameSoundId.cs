@@ -22,5 +22,8 @@ namespace REHozy.Audio
 
         PropPickup,
         PropPlace,
+
+        UiQuestAppear,
+        UiInventoryOpen,
     }
 }

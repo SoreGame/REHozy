@@ -13,55 +13,55 @@ MonoBehaviour:
   m_Name: DefaultGameAudioCatalog
   m_EditorClassIdentifier: REHozy.Audio::REHozy.Audio.GameAudioCatalog
   ambientLoop:
-    clip: {fileID: 0}
-    volume: 0.6
+    clip: {fileID: 8300000, guid: 69de09866ccdbf649be14b4d993f5bc8, type: 3}
+    volume: 0.2
     pitchRange: {x: 1, y: 1}
     loop: 1
     mixerGroupOverride: {fileID: 0}
   rainLoop:
     clip: {fileID: 8300000, guid: c6ce0d5577b8e0b4d8d2a67cf8003c7e, type: 3}
-    volume: 0.7
+    volume: 0.5
     pitchRange: {x: 1, y: 1}
     loop: 1
     mixerGroupOverride: {fileID: 0}
   toolPickup:
-    clip: {fileID: 0}
-    volume: 1
+    clip: {fileID: 8300000, guid: a2ae2ced7e3b6264d940a647ab6f5a78, type: 3}
+    volume: 0.5
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   toolReturnHome:
-    clip: {fileID: 0}
-    volume: 1
+    clip: {fileID: 8300000, guid: b143b8416a69cc843bf40cc9bda0a8a8, type: 3}
+    volume: 20
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   harpoonImpale:
-    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
+    clip: {fileID: 8300000, guid: 45ac747e9aec2ec4b976083d8d703fef, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   harpoonDispose:
-    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
+    clip: {fileID: 8300000, guid: 45ac747e9aec2ec4b976083d8d703fef, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   harpoonBlockedReturn:
-    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
+    clip: {fileID: 8300000, guid: 76110bdb7194c864a9cf62ef56bea98f, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   shovelDigLoop:
-    clip: {fileID: 0}
-    volume: 0.8
+    clip: {fileID: 8300000, guid: 91a198d9f56903a4c9c7b466b2e6f4bf, type: 3}
+    volume: 50
     pitchRange: {x: 1, y: 1}
     loop: 1
     mixerGroupOverride: {fileID: 0}
   waterPourLoop:
-    clip: {fileID: 8300000, guid: 69de09866ccdbf649be14b4d993f5bc8, type: 3}
+    clip: {fileID: 8300000, guid: f637b0147e3cf2b4d856f6212a192f27, type: 3}
     volume: 0.85
     pitchRange: {x: 1, y: 1}
     loop: 1
@@ -79,20 +79,32 @@ MonoBehaviour:
     loop: 0
     mixerGroupOverride: {fileID: 0}
   staticTorchBurnLoop:
-    clip: {fileID: 8300000, guid: 73158e07950b4ff489f6c869ce204221, type: 3}
+    clip: {fileID: 8300000, guid: bc821672f4e7a5c409eeb603143dca57, type: 3}
     volume: 0.35
     pitchRange: {x: 1, y: 1}
     loop: 1
     mixerGroupOverride: {fileID: 0}
   propPickup:
-    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
+    clip: {fileID: 8300000, guid: a2ae2ced7e3b6264d940a647ab6f5a78, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
     loop: 0
     mixerGroupOverride: {fileID: 0}
   propPlace:
-    clip: {fileID: 8300000, guid: 0c63679eaccf13d4a9497601ff081894, type: 3}
+    clip: {fileID: 8300000, guid: 8c2a08d03d4ff1b4d9d8dfe6d15cda8b, type: 3}
     volume: 1
     pitchRange: {x: 0.95, y: 1.05}
+    loop: 0
+    mixerGroupOverride: {fileID: 0}
+  uiQuestAppear:
+    clip: {fileID: 8300000, guid: 419cb3c4390f7144cadde456b3f00011, type: 3}
+    volume: 0.85
+    pitchRange: {x: 0.95, y: 1.05}
+    loop: 0
+    mixerGroupOverride: {fileID: 0}
+  uiInventoryOpen:
+    clip: {fileID: 8300000, guid: a2ae2ced7e3b6264d940a647ab6f5a78, type: 3}
+    volume: 0.75
+    pitchRange: {x: 0.5, y: 1.2}
     loop: 0
     mixerGroupOverride: {fileID: 0}

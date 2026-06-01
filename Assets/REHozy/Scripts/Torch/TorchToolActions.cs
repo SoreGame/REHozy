@@ -6,7 +6,8 @@ namespace REHozy.Torch
     [DisallowMultipleComponent]
     [AddComponentMenu("REHozy/Torch/Torch Tool Actions")]
     [DefaultExecutionOrder(100)]
-    public sealed class TorchToolActions : MonoBehaviour, ICarryableToolActions, ICarryableToolCarriedUpdate
+    public sealed class TorchToolActions : MonoBehaviour, ICarryableToolActions, ICarryableToolCarriedUpdate,
+        ICarryableToolForceRelease
     {
         [Header("References")]
         [SerializeField] private TorchAimPivot aimPivot;
@@ -97,6 +98,13 @@ namespace REHozy.Torch
 
         public void OnHoldCompleteOutsideHome(CarryableToolCore tool)
         {
+        }
+
+        public void OnForceReleased(CarryableToolCore tool)
+        {
+            _returnHoldInProgress = false;
+            ExtinguishAndReset();
+            aimPivot?.ResetAimTilt();
         }
 
         public void OnCarriedUpdate(CarryableToolCore tool, bool attackHeld, bool returnHoldInProgress)
