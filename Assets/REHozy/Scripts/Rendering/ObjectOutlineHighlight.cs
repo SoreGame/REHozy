@@ -8,7 +8,10 @@ namespace REHozy.Rendering
     [AddComponentMenu("REHozy/Rendering/Object Outline Highlight")]
     public sealed class ObjectOutlineHighlight : MonoBehaviour
     {
+        private const string OutlineMaterialResourceName = "ObjectOutline";
+
         private static Material _sharedOutlineMaterial;
+        private static Material _outlineMaterialSource;
 
         [SerializeField] private Color outlineColor = new(0.95f, 0.35f, 0.12f, 1f);
         [SerializeField] private float outlineWidth = 0.025f;
@@ -129,10 +132,19 @@ namespace REHozy.Rendering
                 return _sharedOutlineMaterial;
             }
 
+            _outlineMaterialSource ??= Resources.Load<Material>(OutlineMaterialResourceName);
+            if (_outlineMaterialSource != null)
+            {
+                _sharedOutlineMaterial = new Material(_outlineMaterialSource);
+                return _sharedOutlineMaterial;
+            }
+
             var shader = Shader.Find("REHozy/ObjectOutline");
             if (shader == null)
             {
-                Debug.LogWarning("[ObjectOutlineHighlight] Shader REHozy/ObjectOutline not found.", this);
+                Debug.LogWarning(
+                    "[ObjectOutlineHighlight] Outline material not found. Add Assets/REHozy/Resources/ObjectOutline.mat or include REHozy/ObjectOutline in Graphics settings.",
+                    this);
                 return null;
             }
 

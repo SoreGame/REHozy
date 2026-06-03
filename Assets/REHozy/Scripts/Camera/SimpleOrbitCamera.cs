@@ -1,4 +1,6 @@
+using REHozy.Decoration;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace REHozy.Camera
 {
@@ -15,12 +17,12 @@ namespace REHozy.Camera
         [SerializeField] private float pitch = 25f;
         [SerializeField] private Vector2 pitchLimits = new Vector2(-10f, 80f);
         [SerializeField] private float rotationSensitivity = 0.2f;
-        [SerializeField] private bool invertY = false;
 
         [Header("Zoom")]
         [SerializeField] private float distance = 8f;
         [SerializeField] private Vector2 distanceLimits = new Vector2(2f, 18f);
-        [SerializeField] private float zoomDragSensitivity = 0.02f;
+        [SerializeField] private float zoomScrollSensitivity = 0.5f;
+        [SerializeField] private bool invertScroll;
 
         [Header("Input")]
         [SerializeField] private int rotateMouseButton = 1; // 1 = RMB
@@ -62,16 +64,15 @@ namespace REHozy.Camera
                 return;
             }
 
-            var rotateHeld = IsMouseButtonHeld(rotateMouseButton);
+            if (!DecorationCarrySession.IsCarrying)
+            {
+                TryApplyScrollZoom();
+            }
 
-            if (rotateHeld)
+            if (IsMouseButtonHeld(rotateMouseButton))
             {
                 var delta = GetMouseDelta();
                 yaw += delta.x * rotationSensitivity;
-
-                var zoomSign = invertY ? -1f : 1f;
-                distance -= delta.y * zoomDragSensitivity * zoomSign;
-                distance = Mathf.Clamp(distance, distanceLimits.x, distanceLimits.y);
             }
 
             var pivot = target.position + targetOffset;
@@ -100,12 +101,35 @@ namespace REHozy.Camera
         private static Vector2 GetMouseDelta()
         {
 #if ENABLE_INPUT_SYSTEM
-            var mouse = UnityEngine.InputSystem.Mouse.current;
+            var mouse = Mouse.current;
             if (mouse == null) return Vector2.zero;
             return mouse.delta.ReadValue();
 #else
             return new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
 #endif
+        }
+
+        private void TryApplyScrollZoom()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var mouse = Mouse.current;
+            if (mouse == null)
+            {
+                return;
+            }
+
+            var scrollY = mouse.scroll.ReadValue().y;
+#else
+            var scrollY = Input.GetAxis("Mouse ScrollWheel");
+#endif
+            if (Mathf.Abs(scrollY) < 0.001f)
+            {
+                return;
+            }
+
+            var scrollSign = invertScroll ? -1f : 1f;
+            distance -= scrollY * zoomScrollSensitivity * scrollSign;
+            distance = Mathf.Clamp(distance, distanceLimits.x, distanceLimits.y);
         }
     }
 }

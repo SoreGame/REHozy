@@ -20,8 +20,43 @@ public class QuestPresenter : MonoBehaviour
     private void Awake()
     {
         jsonSaver = new QuestJsonSaver();
-        LoadFromJson();
     }
+
+    private void Start()
+    {
+        BeginFreshGame();
+    }
+
+    public void BeginFreshGame()
+    {
+        ClearSaveAndResetRuntime();
+    }
+
+    public bool IsFirstQuestPending()
+    {
+        var firstQuest = _model.GetFirstQuestSO();
+        if (firstQuest == null)
+            return false;
+
+        var quest = _model.GetQuest(firstQuest.QuestId);
+        return quest != null && !quest.active && !quest.finished;
+    }
+
+    public void TryStartFirstQuest()
+    {
+        if (!IsFirstQuestPending())
+            return;
+
+        var firstQuest = _model.GetFirstQuestSO();
+        if (firstQuest == null)
+        {
+            Debug.LogWarning("[Quest] First quest is not configured in Quest List.");
+            return;
+        }
+
+        StartQuest(firstQuest);
+    }
+
     private void LoadFromJson() 
     {
         try
@@ -218,6 +253,7 @@ public class QuestPresenter : MonoBehaviour
         jsonSaver.Delete(key);
 
         InterruptAllActiveQuests();
+        _model.ClearQuestUi();
         ResetQuestStates(_model._data);
 
         _model._activeQuest.Clear();

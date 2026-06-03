@@ -1,3 +1,4 @@
+using REHozy.Decoration;
 using Unity.Cinemachine;
 using Unity.Cinemachine.TargetTracking;
 using UnityEngine;
@@ -6,8 +7,8 @@ using UnityEngine.InputSystem;
 namespace REHozy.Camera
 {
     /// <summary>
-    /// RMB + mouse X: camera travels on a horizontal arc around the orbit center, always facing it.
-    /// RMB + mouse Y: zoom (<see cref="CinemachineOrbitalFollow.Radius"/>).
+    /// RMB + mouse X: horizontal orbit around the focus point.
+    /// Mouse wheel: zoom (<see cref="CinemachineOrbitalFollow.Radius"/>), unless a placeable is being carried.
     /// Requires <see cref="CinemachineHardLookAt"/> and a shared follow/look-at target.
     /// </summary>
     [DisallowMultipleComponent]
@@ -25,9 +26,9 @@ namespace REHozy.Camera
         [Header("Input")]
         [SerializeField] private float sensitivity = 0.12f;
         [SerializeField] private bool invertX;
-        [Tooltip("World-units per mouse pixel while dragging (scaled by distance to pivot).")]
-        [SerializeField] private float zoomDragSensitivity = 0.35f;
-        [SerializeField] private bool invertY;
+        [Tooltip("Radius change per scroll notch (scaled by current distance).")]
+        [SerializeField] private float zoomScrollSensitivity = 1f;
+        [SerializeField] private bool invertScroll;
 
         [Header("Zoom")]
         [SerializeField] private float minRadius = 25f;
@@ -208,6 +209,11 @@ namespace REHozy.Camera
                 return;
             }
 
+            if (!DecorationCarrySession.IsCarrying)
+            {
+                TryApplyScrollZoom();
+            }
+
             var orbitHeld = IsOrbitHeld();
             if (!orbitHeld)
             {
@@ -227,25 +233,37 @@ namespace REHozy.Camera
             }
 
             var xSign = invertX ? -1f : 1f;
-            var ySign = invertY ? -1f : 1f;
 
-            if (Mathf.Abs(delta.x) >= Mathf.Epsilon)
-            {
-                EnforceLockedVertical();
-
-                var horizontal = orbitalFollow.HorizontalAxis;
-                horizontal.TrackValueChange();
-                horizontal.Value += delta.x * sensitivity * xSign;
-                horizontal.Value = horizontal.ClampValue(horizontal.Value);
-                orbitalFollow.HorizontalAxis = horizontal;
-            }
-
-            if (Mathf.Abs(delta.y) < Mathf.Epsilon)
+            if (Mathf.Abs(delta.x) < Mathf.Epsilon)
             {
                 return;
             }
 
-            ApplyDollyZoom(delta.y * zoomDragSensitivity * ySign);
+            EnforceLockedVertical();
+
+            var horizontal = orbitalFollow.HorizontalAxis;
+            horizontal.TrackValueChange();
+            horizontal.Value += delta.x * sensitivity * xSign;
+            horizontal.Value = horizontal.ClampValue(horizontal.Value);
+            orbitalFollow.HorizontalAxis = horizontal;
+        }
+
+        private void TryApplyScrollZoom()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null)
+            {
+                return;
+            }
+
+            var scrollY = mouse.scroll.ReadValue().y;
+            if (Mathf.Abs(scrollY) < 0.001f)
+            {
+                return;
+            }
+
+            var scrollSign = invertScroll ? -1f : 1f;
+            ApplyDollyZoom(scrollY * zoomScrollSensitivity * scrollSign);
         }
 
         /// <summary>

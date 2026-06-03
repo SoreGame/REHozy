@@ -48,7 +48,7 @@ public class QuestView : MonoBehaviour
 
     private void Start()
     {
-        _listPanel.SetActive(listVisible);
+        SetListVisible(true);
         _selectedPanel.SetActive(hasSelected);
     }
 
@@ -88,34 +88,33 @@ public class QuestView : MonoBehaviour
 
     public void Load(List<QuestData> data)
     {
-        foreach(QuestData item in data)
+        foreach (QuestData item in data)
         {
-            var obj = CreateQuestCell(item);
-            if (!item.selected) continue;
-
-            hasSelected = true;
-            highlitedData = item;
-            highlitedImg = obj.GetComponent<Image>();
-            highlitedImg.color = _selectedColor;
-            _selectedPanel.SetActive(true);
-
-            QuestBus.GetInstance().OnSelect?.Invoke(highlitedData);
+            CreateQuestCell(item);
+            if (item.selected)
+                ApplySelection(item);
         }
     }
 
     public void StartQuest(QuestData data)
     {
-        ShowPanel(data, "Получен квест", playAppearSound: true);
+        GameAudio.Play(GameSoundId.UiQuestAppear, Vector3.zero);
+        ShowPanel(data, "Получен квест");
         CreateQuestCell(data);
+        ApplySelection(data);
     }
 
     public void FinishQuest(QuestData data)
     {
-        ShowPanel(data, "Квест завершен", playAppearSound: false);
-        if (data.selected)
-            _selectedPanel.SetActive(false);
-
+        ShowPanel(data, "Квест завершен");
+        var wasShownInPanel = hasSelected && ReferenceEquals(highlitedData, data);
         RemoveQuest(data);
+
+        if (!wasShownInPanel)
+            return;
+
+        if (!TrySelectActiveQuest())
+            ClearSelection();
     }
 
     private void Interrupt(QuestData data)
@@ -132,7 +131,7 @@ public class QuestView : MonoBehaviour
         cellsObj.RemoveAt(cell_ind);
         cells.RemoveAt(cell_ind);
     }
-    private void ShowPanel(QuestData data, string name, bool playAppearSound)
+    private void ShowPanel(QuestData data, string name)
     {
         if (!data.animation_start && data.progress < data.goal)
             return;
@@ -141,16 +140,12 @@ public class QuestView : MonoBehaviour
         _nameText.text = $"{name}: {data.quest_name}";
         _descriptionText.text = $"{data.quest_description}\n{DescriptionText(data, data.progress < data.goal)}";
         _animator.SetTrigger("Show");
-        if (playAppearSound)
-        {
-            GameAudio.Play(GameSoundId.UiQuestAppear, Vector3.zero);
-        }
     }
     private string DescriptionText(QuestData data, bool is_start)
     {
         if (is_start)
             return $"Цель: {data.goal}";
-        return $"Получено: {data.gold_reward} золота";
+        return $"Квест завершен!";
     }
 
     private void Highlight(QuestData data, Image image)
@@ -163,7 +158,7 @@ public class QuestView : MonoBehaviour
         highlitedData.highlighted = true;
 
         _selectBtn.SetActive(highlighted);
-        _btnSelectText.text = data.selected ? "Unselect" : "Select";
+        _btnSelectText.text = data.selected ? "Убрать" : "Выбрать";
         highlitedImg.color = highlitedData.selected ? _selectedColor : _highlightedColor;
     }
     private void UnhighlAll()
@@ -183,17 +178,77 @@ public class QuestView : MonoBehaviour
 
     public void select()
     {
+        if (highlitedData == null)
+            return;
+
+        if (highlitedData.selected)
+        {
+            highlitedData.selected = false;
+            hasSelected = false;
+            _selectedPanel.SetActive(false);
+            RefreshCellColors();
+            if (highlitedImg != null)
+                highlitedImg.color = _highlightedColor;
+            _btnSelectText.text = "Выбрать";
+            return;
+        }
+
         UnselectAll();
-
-        hasSelected = !highlitedData.selected;
+        ApplySelection(highlitedData);
         highlighted = true;
+        _selectBtn.SetActive(true);
+        _btnSelectText.text = "Убрать";
+    }
 
-        _presenter.select(highlitedData);
-        _selectedPanel.SetActive(hasSelected);
-        highlitedImg.color = hasSelected ? _selectedColor : _highlightedColor;
-        _btnSelectText.text = hasSelected ? "Unselect" : "Select";
+    private void ApplySelection(QuestData data)
+    {
+        _presenter.UnselAll(data);
+        data.selected = true;
+        hasSelected = true;
+        highlitedData = data;
+        highlitedImg = FindCellImage(data);
 
-        QuestBus.GetInstance().OnSelect?.Invoke(highlitedData);
+        RefreshCellColors();
+        _selectedPanel.SetActive(true);
+        if (_selectBtn != null)
+            _selectBtn.SetActive(false);
+
+        QuestBus.GetInstance().OnSelect?.Invoke(data);
+    }
+
+    private bool TrySelectActiveQuest()
+    {
+        var active = _presenter.Model._activeQuest;
+        if (active == null || active.Count == 0)
+            return false;
+
+        ApplySelection(active[active.Count - 1]);
+        return true;
+    }
+
+    private void ClearSelection()
+    {
+        hasSelected = false;
+        highlitedData = null;
+        highlitedImg = null;
+        _selectedPanel.SetActive(false);
+    }
+
+    private Image FindCellImage(QuestData data)
+    {
+        int index = cells.FindIndex(c => ReferenceEquals(c.Data, data));
+        return index >= 0 ? cellsObj[index].GetComponent<Image>() : null;
+    }
+
+    private void RefreshCellColors()
+    {
+        for (int i = 0; i < cells.Count; i++)
+        {
+            var img = cellsObj[i].GetComponent<Image>();
+            img.color = hasSelected && ReferenceEquals(cells[i].Data, highlitedData)
+                ? _selectedColor
+                : _baseColor;
+        }
     }
 
     private void UnselectAll()
@@ -223,7 +278,9 @@ public class QuestView : MonoBehaviour
 
     private void SetListVisible(bool visible)
     {
-        var opening = visible && !listVisible;
+        var wasVisible = listVisible;
+        var opening = visible && !wasVisible;
+        var closing = !visible && wasVisible;
         listVisible = visible;
         if (visible)
             UiEventSystemUtility.EnsureAvailable();
@@ -238,6 +295,10 @@ public class QuestView : MonoBehaviour
         if (listVisible)
         {
             QuestBus.GetInstance().OnUpdateData?.Invoke();
+        }
+        else if (closing)
+        {
+            _presenter.TryStartFirstQuest();
         }
     }
     private GameObject CreateQuestCell(QuestData data)

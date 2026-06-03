@@ -108,9 +108,7 @@ namespace REHozy
 
             foreach (var core in cores)
             {
-                if (core.State is CarryableToolState.Carried
-                    or CarryableToolState.Busy
-                    or CarryableToolState.Returning)
+                if (core.HidesGameplayCursor)
                 {
                     return true;
                 }

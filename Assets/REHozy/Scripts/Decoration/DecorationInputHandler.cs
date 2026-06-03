@@ -20,7 +20,7 @@ namespace REHozy.Decoration
         [SerializeField] private bool useMouseButtonFallback = true;
 
         [Header("Carry rotation")]
-        [SerializeField] private float scrollYawDegreesPerNotch = 5f;
+        [SerializeField] private float scrollYawDegreesPerNotch = 10f;
 
         private InputAction _attack;
         private InputActionMap _playerMap;

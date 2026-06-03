@@ -28,6 +28,9 @@ public class QuestSelectedPanel : MonoBehaviour
 
     public void update()
     {
+        if (Data == null)
+            return;
+
         _progress.text = $"Прогресс: {Data.progress}/{Data.goal}";
     }
 }

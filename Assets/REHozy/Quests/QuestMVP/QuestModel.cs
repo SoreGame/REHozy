@@ -490,4 +490,15 @@ public class QuestModel : MonoBehaviour
     {
         return _questList.FirstOrDefault(so => so.QuestId == id);
     }
+
+    public QuestSO GetFirstQuestSO()
+    {
+        foreach (var so in _questList)
+        {
+            if (so != null)
+                return so;
+        }
+
+        return null;
+    }
 }

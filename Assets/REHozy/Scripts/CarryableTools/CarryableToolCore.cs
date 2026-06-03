@@ -48,6 +48,15 @@ namespace REHozy.CarryableTools
 
         public bool CanReturnHome() => _actions != null && _actions.CanReturnHome(this);
 
+        /// <summary>
+        /// Harpoon aims with the mouse cursor; other tools hide it while carried.
+        /// </summary>
+        public bool HidesGameplayCursor =>
+            toolModeId != PlayerToolMode.Harpoon
+            && _state is CarryableToolState.Carried
+                or CarryableToolState.Busy
+                or CarryableToolState.Returning;
+
         private void Reset()
         {
             carryDriver = GetComponent<CarryableCarryDriver>();
@@ -175,7 +184,7 @@ namespace REHozy.CarryableTools
             _state = CarryableToolState.Carried;
             carryDriver?.ResetCarryMotion(transform.position);
             SetPickupColliderEnabled(false);
-            SetCursorVisible(false);
+            SetCursorVisible(!HidesGameplayCursor);
             GameAudio.Play(GameSoundId.ToolPickup, transform.position);
         }
 
